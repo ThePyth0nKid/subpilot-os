@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviders } from "@/lib/providers";
+import { authEnabled } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,7 @@ export async function GET() {
       modes,
       llm: "anthropic",
       sandbox: "daytona",
+      authEnabled: authEnabled(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Provider init failed";

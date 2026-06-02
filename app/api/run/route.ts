@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRun } from "@/lib/orchestrator/store";
 import { runPipeline } from "@/lib/orchestrator/run";
+import { authEnabled, getUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -27,11 +28,15 @@ async function readCsv(req: Request): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    const user = await getUser();
+    if (authEnabled() && !user) {
+      return NextResponse.json({ error: "Sign in to run an optimization" }, { status: 401 });
+    }
     const csv = await readCsv(req);
     if (!csv.trim()) {
       return NextResponse.json({ error: "Empty CSV body" }, { status: 400 });
     }
-    const runId = createRun();
+    const runId = createRun(user?.id);
     // Fire-and-forget: the pipeline streams its progress over SSE.
     void runPipeline(runId, csv);
     return NextResponse.json({ runId });

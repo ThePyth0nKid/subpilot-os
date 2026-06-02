@@ -5,6 +5,7 @@ type Listener = (event: AgentEvent) => void;
 
 interface RunRecord {
   readonly id: string;
+  readonly userId?: string;
   status: RunStatus;
   events: readonly AgentEvent[];
   readonly listeners: Set<Listener>;
@@ -22,10 +23,11 @@ function newId(): string {
   return `run_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
-export function createRun(): string {
+export function createRun(userId?: string): string {
   const id = newId();
   runs.set(id, {
     id,
+    userId,
     status: "idle",
     events: [],
     listeners: new Set(),

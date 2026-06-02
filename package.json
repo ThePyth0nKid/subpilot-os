@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "@daytonaio/sdk": "^0.183.0",
+    "@workos-inc/authkit-nextjs": "^4.1.1",
     "csv-parse": "^6.2.1",
     "dotenv": "^17.4.2",
     "next": "16.2.7",

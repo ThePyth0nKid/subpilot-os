@@ -3,6 +3,7 @@ import { z } from "zod";
 import { type ActionResult } from "@/lib/domain/action";
 import { ServiceSlugSchema } from "@/lib/domain/subscription";
 import { getProviders } from "@/lib/providers";
+import { authEnabled, getUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +23,9 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    if (authEnabled() && !(await getUser())) {
+      return NextResponse.json({ error: "Sign in to execute" }, { status: 401 });
+    }
     const { orders, dryRun } = BodySchema.parse(await req.json());
     const { payment } = getProviders();
 

@@ -26,6 +26,11 @@ const EnvSchema = z.object({
   BRIGHTDATA_PASSWORD: optional,
   BITREFILL_API_KEY: optional,
   BITREFILL_API_SECRET: optional,
+  // Auth (optional; app runs in open "demo" mode until provided)
+  WORKOS_API_KEY: optional,
+  WORKOS_CLIENT_ID: optional,
+  WORKOS_COOKIE_PASSWORD: optional,
+  NEXT_PUBLIC_WORKOS_REDIRECT_URI: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -62,4 +67,11 @@ export function hasBrightData(env: Env): boolean {
 /** True when real Bitrefill credentials are configured. */
 export function hasBitrefill(env: Env): boolean {
   return Boolean(env.BITREFILL_API_KEY && env.BITREFILL_API_SECRET);
+}
+
+/** True when WorkOS AuthKit is configured (else the app runs in open demo mode). */
+export function hasWorkOS(env: Env): boolean {
+  return Boolean(
+    env.WORKOS_API_KEY && env.WORKOS_CLIENT_ID && env.WORKOS_COOKIE_PASSWORD,
+  );
 }

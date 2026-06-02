@@ -7,6 +7,7 @@ import { CountryGrid } from "@/app/components/CountryGrid";
 import { KernelStrip } from "@/app/components/KernelStrip";
 import { ReceiptPanel } from "@/app/components/ReceiptPanel";
 import { SavingsPlan } from "@/app/components/SavingsPlan";
+import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { eur } from "@/lib/ui/meta";
 import { useRun } from "@/lib/ui/useRun";
 
@@ -40,7 +41,9 @@ function useCountUp(target: number, run: boolean): number {
 
 export default function Home() {
   const { status, events, snapshot, error, running, start } = useRun();
+  const { user } = useAuth();
   const [modes, setModes] = useState<ProviderModes | null>(null);
+  const [authOn, setAuthOn] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [receipts, setReceipts] = useState<readonly ActionResult[]>([]);
@@ -49,9 +52,14 @@ export default function Home() {
   useEffect(() => {
     fetch("/api/providers")
       .then((r) => r.json())
-      .then((d) => setModes(d.modes ?? null))
+      .then((d) => {
+        setModes(d.modes ?? null);
+        setAuthOn(Boolean(d.authEnabled));
+      })
       .catch(() => setModes(null));
   }, []);
+
+  const needsAuth = authOn && !user;
 
   const monthlySaved = snapshot?.report.totalMonthlySavingsEUR ?? 0;
   const animatedSaved = useCountUp(monthlySaved, status === "done");
@@ -77,10 +85,14 @@ export default function Home() {
 
   const runWith = useCallback(
     (csv: string) => {
+      if (authOn && !user) {
+        window.location.href = "/login";
+        return;
+      }
       setReceipts([]);
       void start(csv);
     },
-    [start],
+    [start, authOn, user],
   );
 
   const onTryDemo = useCallback(async () => {
@@ -172,6 +184,27 @@ export default function Home() {
             <span className="dot" /> Tavily{modes && modes.search !== "tavily" ? " · mock" : ""}
           </span>
           <span className="chip">Bitrefill · mock</span>
+          {authOn ? (
+            user ? (
+              <a
+                href="/logout"
+                className="chip"
+                style={{ color: "var(--ink)", textTransform: "none" }}
+                title="Sign out"
+              >
+                <span className="dot" style={{ color: "var(--green)" }} />
+                {user.email} · sign out
+              </a>
+            ) : (
+              <a href="/login" className="btn" style={{ padding: "6px 14px" }}>
+                Sign in
+              </a>
+            )
+          ) : (
+            <span className="chip" title="Add WorkOS keys to enable login">
+              auth · off
+            </span>
+          )}
         </div>
       </header>
 
@@ -244,7 +277,11 @@ export default function Home() {
                 Upload CSV
               </button>
               <button className="btn btn-gold" onClick={onTryDemo} disabled={running}>
-                {running ? "Running…" : "▶ Try the demo"}
+                {running
+                  ? "Running…"
+                  : needsAuth
+                    ? "Sign in to run"
+                    : "▶ Try the demo"}
               </button>
             </div>
           </div>

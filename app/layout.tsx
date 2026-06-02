@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
+import { AuthKitProvider } from "@workos-inc/authkit-nextjs/components";
+import { getInitialAuth } from "@/lib/auth";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -20,15 +22,18 @@ export const metadata: Metadata = {
     "Upload a bank statement, watch 7 specialized agents fan out across regional sandboxes, and reclaim money from overpriced subscriptions.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const initialAuth = await getInitialAuth();
   return (
     <html
       lang="en"
       className={`${bricolage.variable} ${jbMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <AuthKitProvider initialAuth={initialAuth}>{children}</AuthKitProvider>
+      </body>
     </html>
   );
 }
