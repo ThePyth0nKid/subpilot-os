@@ -1,99 +1,89 @@
-# SubPilot OS — Start-Agent-Prompt (autonomous build)
+# SubPilot OS — Continuation Prompt (autonomous agent, next PRs)
 
-You are an autonomous coding agent building **SubPilot OS** in this repo. Work through the
-Work Packages (WP) below **one at a time, in order**. After each WP: make it compile, run its
-test step, and only then move on. Keep commits small (one per WP). When the Acceptance Test
-passes, stop and report.
+You are an autonomous coding agent continuing **SubPilot OS**. The initial 1-hour vertical slice
+**and** the demo→MVP upgrade are already shipped and live on GitHub. Your job now is to pick up the
+backlog below and ship it **as small, reviewed pull requests** — one focused PR at a time.
 
-## Mission
+## Current state (already shipped — do not rebuild)
 
-An agentic OS: upload a bank-statement CSV → detect subscriptions → short interview →
-**fan out real Daytona sandboxes (one per subscription × country)** that research real regional
-prices → optimizer picks the cheapest *viable* country with a risk score → UI shows a live agent
-feed + savings plan → "Execute" runs a (dry-run) action. This is the demo core for a 1-hour build.
+A working agentic OS: upload a bank-statement CSV → detect subscriptions → auto-interview →
+**fan out real Daytona sandboxes per service × country** (each runs a real `curl` egress check +
+in-country evidence fetch) → constraint + optimizer pick the cheapest *viable* country with a risk
+score → live SSE agent feed + savings plan → **Execute** runs each switch inside its **own isolated
+Daytona action sandbox** (the payment token only ever enters that ephemeral sandbox) → audited
+dry-run receipts. Plus: **WorkOS AuthKit login**, **Postgres/Drizzle** per-user history, **Stripe**
+card capture (test mode), a **`subpilot` CLI**, and an **MCP server** (drive it from Cursor/Claude Code).
 
-## Hard constraints
+- Shipped work packages: **WP0–WP15** (scaffold → domain → providers → ingest → Daytona runner →
+  geo-research → constraint/optimizer → orchestrator+SSE → UI → real geo sandbox → auth → persistence
+  → Stripe → action sandbox → CLI → MCP). A code + security review pass is also merged.
+- **Every integration is optional and graceful:** with no keys the app runs in open demo mode
+  (mock proxy/payment, no login, in-memory runs). Keys in `.env.local` light each up — see `.env.example`.
 
-- **Time budget: ~1 hour.** Favor a working vertical slice over completeness.
-- **Real now:** Daytona, Anthropic (Claude), Tavily — keys are in `.env.local`.
-- **Mock now (stretch later):** Bright Data proxy, Bitrefill payment. Mocks must satisfy the
-  same provider interface so they swap out with zero call-site changes.
-- Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) FIRST — it defines all data contracts. Do not invent different shapes.
-- Conventions: TypeScript strict, **immutable data** (`readonly`, no mutation), small focused files
-  (<300 lines), Zod validation at every boundary, comprehensive error handling (never swallow).
-- Model routing: Haiku for extraction/normalization, Sonnet for interview/optimizer/orchestration.
-  Use Anthropic prompt caching on system prompts + tool defs.
+## Read first
 
-## Work Packages
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data contracts + agent topology + state machine. **Do not invent different shapes.**
+- [`docs/STRETCH-SETUP.md`](docs/STRETCH-SETUP.md) — how to wire real Bright Data + Bitrefill.
+- `lib/providers/index.ts` (real/mock factory), `lib/orchestrator/run.ts` (the pipeline),
+  `lib/agents/*` (the 7 agents), `lib/daytona/*` (sandbox primitives).
 
-### WP0 — Scaffold
-- `create-next-app` (TypeScript, App Router, Tailwind, ESLint) in repo root. pnpm.
-- Load env via a typed `lib/env.ts` (Zod-validate required keys, friendly error if missing).
-- Add `GET /api/health` returning `{ ok: true }`.
-- **Test:** `pnpm dev`, then `curl localhost:3000/api/health` → `{"ok":true}`.
+## Conventions (non-negotiable)
 
-### WP1 — Domain + schemas
-- `lib/domain/*.ts`: the types from ARCHITECTURE.md (Money, Subscription, PreferenceProfile,
-  GeoPriceResult, RiskAssessment, Recommendation, OptimizationResult, ActionResult, AgentEvent).
-- Matching Zod schemas. A small `lib/domain/fx.ts` with a static EUR FX table.
-- **Test:** `pnpm typecheck` (add the script) passes.
+- TypeScript strict; **immutable data** (`readonly`, return new objects, never mutate).
+- Small focused files (<300 lines); **Zod validation at every boundary**; never swallow errors silently.
+- Provider interfaces so mock ↔ real swap with **zero call-site changes**.
+- Keep **graceful degradation**: any new integration must no-op (not crash) when its env keys are absent.
+- Model routing: Haiku for extraction/normalization, Sonnet for reasoning. Anthropic prompt caching on system prompts + tool defs.
+- **Never commit secrets.** `.env.local` is gitignored; only `.env.example` (empty placeholders) is tracked. Add any new key to `.env.example` (empty) + `lib/env.ts` (optional) + a `hasX()` helper.
 
-### WP2 — Providers (real + mock)
-- `lib/providers/llm` (Anthropic wrapper, caching, model routing),
-  `lib/providers/search` (Tavily real),
-  `lib/providers/proxy` (mock pass-through, real Bright Data stub),
-  `lib/providers/payment` (mock receipt, real Bitrefill stub).
-- A `lib/providers/index.ts` factory that picks real/mock based on env presence.
-- **Test:** a script `pnpm tsx scripts/smoke-search.ts "Spotify price India 2026"` prints a Tavily answer.
+## PR workflow (how to ship each item)
 
-### WP3 — Ingest agent
-- `lib/agents/ingest`: deterministic CSV parse → cluster recurring tx → Claude **Haiku** normalizes
-  merchant + maps to `ServiceSlug` → `Subscription[]`.
-- `POST /api/ingest` (multipart or text CSV) → `Subscription[]`.
-- **Test:** post `fixtures/sample-bank-statement.csv` → returns Netflix, Spotify, Disney+, YouTube,
-  ChatGPT (+ Amazon Prime/iCloud) with monthly EUR.
+1. **Branch** off `main`: `git checkout -b feat/<short-name>` (or `fix/`, `chore/`). Do **not** commit directly to `main`.
+2. Implement the smallest coherent change. Reuse existing utilities (`emit`/`OnEvent`, `getProviders`,
+   `withSandbox`/`fanOut`, `LlmClient.extract`, domain Zod schemas, the SSE store).
+3. **Verify:** `npm run typecheck` **and** `npm run build` must be green, then run the relevant smoke
+   (a `scripts/smoke-*.ts`, `cli/subpilot.ts`, or the MCP handshake). Add/adjust a smoke for new behavior.
+4. **Self-review** for correctness + security (you handle auth, payment, sandboxes, DB — be paranoid).
+5. Commit (conventional commits, small) and open a PR with `gh pr create` — title + body summarizing
+   what/why + a test plan. One feature per PR. Stop and report after each PR; do not batch unrelated work.
 
-### WP4 — Daytona sandbox runner
-- `lib/daytona/runner.ts` using `@daytonaio/sdk`: create sandbox (snapshot if available),
-  exec a command / run JS, collect stdout, teardown. Concurrency-limited `fanOut(items, fn)` helper
-  that emits `AgentEvent`s (started/progress/completed per sandbox).
-- **Test:** `pnpm tsx scripts/smoke-daytona.ts` spins up 1 sandbox, runs `node -e "console.log('hi')"`, tears down.
+## Backlog — next PRs (priority order)
 
-### WP5 — Geo-research agent (in sandbox, fan-out)
-- `lib/agents/geo-research`: for `{service, country}` → use **Tavily** (country-aware query) to get the
-  regional price, Claude **Haiku** to extract → `GeoPriceResult`. Run each via the Daytona fan-out.
-- `POST /api/research` `{ service, countries[] }` → `GeoPriceResult[]`.
-- **Test:** research `netflix` over `[IN,TR,US,DE]` → 4 results, India clearly cheapest.
+Most of these are the deferred follow-ups from the merged code + security review.
 
-### WP6 — Constraint + Optimizer
-- `lib/agents/constraint`: filter options by preference + feasibility + risk; attach `RiskAssessment`.
-- `lib/agents/optimizer`: cheapest viable per sub, savings, tradeoffs → `OptimizationResult`.
-- **Test:** `pnpm tsx scripts/smoke-optimize.ts` on the sample → prints total €/month saved.
+### P1 — Security hardening
+1. **Rate limiting** on `POST /api/run`, `POST /api/act`, `POST /api/stripe/setup-intent`
+   (Upstash Redis or an in-memory token bucket for single-instance). `/api/run` fans out Daytona +
+   LLM + Tavily per call — cap concurrency per user/IP. (Review C2.)
+2. **Dependency CVEs:** `protobufjs` (HIGH, via `@daytonaio/sdk` → OTel) and `esbuild` (moderate, dev-only,
+   via `drizzle-kit`). `npm audit fix --force` is a breaking SDK change — evaluate carefully, pin, test
+   the Daytona path end-to-end before merging. (Review H4/L3.)
+3. **Content-Security-Policy** header in `next.config.ts` — must allowlist `js.stripe.com` + `*.stripe.com`
+   (Stripe Elements) and WorkOS, or it will break card capture / login. Test both flows. (Review M1.)
 
-### WP7 — Orchestrator + event stream
-- `lib/orchestrator`: the state machine (ingest→…→report) with in-memory run store.
-- `GET /api/run/:id/events` Server-Sent Events streaming `AgentEvent`s.
-- `POST /api/run` starts a run from an uploaded CSV (interview answers optional/defaulted for demo).
-- **Test:** start a run on the sample → SSE emits ingest + per-country research + optimize + report events.
+### P2 — Correctness / robustness
+4. **Per-currency minor units** table (`JPY`=1, `KWD`=1000, default 100) used by `isPlausible` +
+   `fallbackPrice` in `lib/agents/geo-research/extract.ts`, so adding 0/3-decimal currencies stays correct. (Review M1-code.)
+5. **`pricingUrl` country awareness** — `netflix` + `youtube_premium` in `lib/agents/geo-research/sources.ts`
+   ignore the country param (always US-English page). Use country-specific pricing/help URLs. (Review L1.)
+6. **Persist `ActionResult`** to Postgres (new `actions` table) so execute history survives, gated by auth+DB.
+7. **MCP `execute_switch`** — `z.parse` the orders against the domain shape before `runActions` (drop the `as` cast) for Zod-at-boundary consistency.
 
-### WP8 — UI
-- One page: upload CSV → **live agent feed** (cards per sandbox/country lighting up via SSE) →
-  **savings plan** (per sub: current vs best country, €/mo saved, risk badge, tradeoffs) →
-  **Execute** button → dry-run `ActionResult` + receipt + total saved.
-- Clean, demo-friendly (Tailwind). Show the parallel sandboxes prominently.
-- **Test:** manual — upload sample, watch the flow to a savings number + execute.
+### P3 — Product / mock→real
+8. **Real Bright Data** end-to-end: with `BRIGHTDATA_*` set, confirm the geo probe shows real in-country
+   egress (`Egress confirmed IN ✓ in-country`) — see `docs/STRETCH-SETUP.md`. Add a smoke that asserts country match.
+9. **Real Bitrefill** purchase path in `lib/providers/payment/bitrefill.ts` (currently a stub) + wire the
+   live action sandbox to it behind the consent toggle. Keep dry-run the default.
+10. **CLI `--live`** flag for `subpilot execute` (web UI already has the live toggle; CLI is dry-run only).
+11. **Interview UI** — the architecture has a real Interview agent; today it's auto-defaulted. Add the
+    in-UI question flow (`Question[]` → `PreferenceProfile[]`) before research.
 
-### WP9 — Polish
-- README run steps verified, sample wired as a one-click "Try demo" button, basic error toasts.
+### P4 — Quality
+12. **Tests:** the repo has only build-style smokes. Add unit tests (ingest clustering, optimizer math,
+    fx, plausibility clamp), integration tests (API routes), and a Playwright E2E for the happy path.
+    Target the project's 80% coverage rule for new/changed code.
 
-## Acceptance Test (stop when green)
+## Report back (per PR)
 
-`pnpm dev` → open app → click "Try demo" (or upload `fixtures/sample-bank-statement.csv`) →
-watch real Daytona sandboxes fan out across countries → see a total **€/month saved** with per-sub
-recommendations and risk badges → click **Execute** → get a dry-run receipt + audit trail.
-
-## Report back
-
-When done (or if blocked), report: which WPs are green, the demo savings number on the sample,
-any failing test + error, and exactly what you need (e.g. a Bright Data or Bitrefill key to go from
-mock to real).
+PR link, what changed + why, which checks ran green (typecheck/build/smoke), and anything you need
+(e.g. a real Bright Data / Bitrefill / WorkOS / Stripe test key, or a Postgres `DATABASE_URL`).
