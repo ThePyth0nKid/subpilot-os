@@ -37,6 +37,12 @@ export async function POST(req: Request) {
     if (!csv.trim()) {
       return NextResponse.json({ error: "Empty CSV body" }, { status: 400 });
     }
+    if (csv.length > 500_000) {
+      return NextResponse.json(
+        { error: "CSV too large (max 500KB)" },
+        { status: 413 },
+      );
+    }
     if (user) await upsertUser(user.id, user.email).catch(() => {});
     const runId = createRun(user?.id);
     // Fire-and-forget: the pipeline streams its progress over SSE.

@@ -20,8 +20,16 @@ interface RunRecord {
 const runs = new Map<string, RunRecord>();
 
 function newId(): string {
-  return `run_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  // CSPRNG — run ids must be unguessable (the SSE stream is keyed on them).
+  return `run_${crypto.randomUUID()}`;
 }
+
+/** Owner (WorkOS user id) of a run, for SSE ownership checks. */
+export function ownerOf(id: string): string | undefined {
+  return runs.get(id)?.userId;
+}
+
+const RUN_TTL_MS = 30 * 60 * 1000;
 
 export function createRun(userId?: string): string {
   const id = newId();
@@ -50,7 +58,10 @@ export function emit(id: string, event: AgentEvent): void {
 
 export function markTerminal(id: string): void {
   const r = runs.get(id);
-  if (r) r.terminal = true;
+  if (!r) return;
+  r.terminal = true;
+  // Evict completed runs so the in-memory store can't grow without bound.
+  setTimeout(() => runs.delete(id), RUN_TTL_MS);
 }
 
 /** Register a listener, replaying buffered events first (sync — no interleave). */

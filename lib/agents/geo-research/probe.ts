@@ -21,13 +21,30 @@ export interface ProbeResult {
   readonly error?: string;
 }
 
-/** Bright Data proxy → curl `--proxy` arg; mock/direct → no proxy (honest). */
-function proxyArg(proxy: ProxyConfig): string {
+interface ProxyShell {
+  readonly flags: string;
+  readonly env: Record<string, string>;
+}
+
+/**
+ * Bright Data proxy → curl flags that reference ENV VARS (never inline creds).
+ * Credentials are passed structurally to executeCommand and expanded inside
+ * double quotes, so a password containing shell metacharacters can't inject
+ * (the shell does not re-scan an expanded value). Mock/direct → no proxy.
+ */
+function proxyShell(proxy: ProxyConfig): ProxyShell {
   if (proxy.mode !== "brightdata" || !proxy.host || proxy.host === "direct") {
-    return "";
+    return { flags: "", env: {} };
   }
-  // single-quoted so the URL/creds survive the shell verbatim
-  return `--proxy 'http://${proxy.username}:${proxy.password}@${proxy.host}:${proxy.port}'`;
+  return {
+    flags: `--proxy "http://$BD_HOST:$BD_PORT" --proxy-user "$BD_USER:$BD_PASS"`,
+    env: {
+      BD_HOST: proxy.host,
+      BD_PORT: String(proxy.port),
+      BD_USER: proxy.username,
+      BD_PASS: proxy.password,
+    },
+  };
 }
 
 /** Pull the first {...} JSON object out of possibly-noisy curl stdout. */
@@ -52,7 +69,10 @@ export async function runGeoProbe(
   proxy: ProxyConfig,
 ): Promise<ProbeResult> {
   const started = Date.now();
-  const pa = proxyArg(proxy);
+  const px = proxyShell(proxy);
+  const url = pricingUrl(service, country);
+  // Secrets + target URL travel as env vars, never interpolated into the shell.
+  const env = { ...px.env, TARGET_URL: url };
 
   let egressIp: string | undefined;
   let egressCountry: string | undefined;
@@ -60,8 +80,8 @@ export async function runGeoProbe(
   let error: string | undefined;
 
   try {
-    const geoCmd = `curl -s --max-time 20 ${pa} https://geo.brdtest.com/mygeo.json`;
-    const out = await runShell(sandbox, geoCmd, undefined, 30);
+    const geoCmd = `curl -s --max-time 20 ${px.flags} https://geo.brdtest.com/mygeo.json`;
+    const out = await runShell(sandbox, geoCmd, env, 30);
     const parsed = JSON.parse(firstJsonObject(out.stdout)) as {
       ip?: string;
       country?: string;
@@ -76,9 +96,8 @@ export async function runGeoProbe(
 
   let evidence: ProbeEvidence | undefined;
   try {
-    const url = pricingUrl(service, country);
-    const fetchCmd = `curl -sL --max-time 25 ${pa} -A 'Mozilla/5.0 (SubPilotProbe)' '${url}'`;
-    const out = await runShell(sandbox, fetchCmd, undefined, 35);
+    const fetchCmd = `curl -sL --max-time 25 ${px.flags} -A "Mozilla/5.0 (SubPilotProbe)" "$TARGET_URL"`;
+    const out = await runShell(sandbox, fetchCmd, env, 35);
     const html = out.stdout.slice(0, EVIDENCE_MAX).trim();
     if (html) evidence = { url, html };
   } catch {

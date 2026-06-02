@@ -107,16 +107,18 @@ server.registerTool(
     description:
       "Provision accepted switches, each inside an isolated Daytona action sandbox. Returns ActionResult[] with audit trails.",
     inputSchema: {
-      orders: z.array(
-        z.object({
-          subscriptionId: z.string(),
-          service: z.string(),
-          toCountry: z.string(),
-          fromCountry: z.string().optional(),
-          amountMinor: z.number().int(),
-          currency: z.string(),
-        }),
-      ),
+      orders: z
+        .array(
+          z.object({
+            subscriptionId: z.string(),
+            service: z.string(),
+            toCountry: z.string(),
+            fromCountry: z.string().optional(),
+            amountMinor: z.number().int(),
+            currency: z.string(),
+          }),
+        )
+        .max(20),
       dryRun: z.boolean().optional().describe("Defaults to true"),
     },
   },

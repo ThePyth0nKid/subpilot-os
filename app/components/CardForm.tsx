@@ -32,14 +32,20 @@ export function CardForm({ onSaved }: CardFormProps) {
   );
 
   useEffect(() => {
-    fetch("/api/stripe/setup-intent", { method: "POST" })
+    const ctrl = new AbortController();
+    fetch("/api/stripe/setup-intent", { method: "POST", signal: ctrl.signal })
       .then((r) => r.json())
       .then((d) => {
         if (d.error) setError(d.error);
         setClientSecret(d.clientSecret ?? null);
         setCustomerId(d.customerId ?? null);
       })
-      .catch(() => setError("Could not initialize Stripe"));
+      .catch((e: unknown) => {
+        if (!(e instanceof DOMException && e.name === "AbortError")) {
+          setError("Could not initialize Stripe");
+        }
+      });
+    return () => ctrl.abort();
   }, []);
 
   if (!PUBLISHABLE_KEY) {

@@ -87,7 +87,7 @@ export async function researchOne(
     uiLanguages: extracted.uiLanguages,
     sourceUrl: extracted.sourceUrl,
     capturedAt: new Date().toISOString(),
-    proxyCountry: probe?.egressCountry ?? proxyCfg.country,
+    proxyCountry: probe?.egressCountry || proxyCfg.country,
     confidence,
   } satisfies GeoPriceResult);
 

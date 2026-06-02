@@ -32,7 +32,12 @@ export async function getUser(): Promise<SessionUser | null> {
     return user
       ? { id: user.id, email: user.email, firstName: user.firstName ?? null }
       : null;
-  } catch {
+  } catch (err) {
+    // Surface infra failures instead of silently degrading to "guest".
+    console.error(
+      "[auth] withAuth failed:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }

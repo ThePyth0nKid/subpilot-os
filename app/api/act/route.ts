@@ -17,7 +17,7 @@ const OrderSchema = z.object({
 });
 
 const BodySchema = z.object({
-  orders: z.array(OrderSchema).min(1),
+  orders: z.array(OrderSchema).min(1).max(20),
   dryRun: z.boolean().default(true),
   paymentToken: z.string().optional(),
   consent: z.boolean().optional(),
@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     const { orders, dryRun, paymentToken, consent } = BodySchema.parse(
       await req.json(),
     );
-    const effectiveDryRun = dryRun || !consent;
+    // Live execution requires explicit consent AND real auth — demo mode is
+    // always dry-run so an open deployment can never move money.
+    const effectiveDryRun = dryRun || !consent || !authEnabled();
 
     const actOrders: ActOrder[] = orders.map((o) => ({
       subscriptionId: o.subscriptionId,

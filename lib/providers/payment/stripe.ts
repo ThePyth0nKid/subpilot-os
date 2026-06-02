@@ -53,11 +53,19 @@ export async function createSetupIntent(customerId: string): Promise<string> {
   return si.client_secret;
 }
 
-export async function retrievePaymentMethod(
-  id: string,
-): Promise<{ brand: string | null; last4: string | null }> {
+export async function retrievePaymentMethod(id: string): Promise<{
+  brand: string | null;
+  last4: string | null;
+  customer: string | null;
+}> {
   const stripe = getStripe();
   if (!stripe) throw new Error("Stripe not configured");
   const pm = await stripe.paymentMethods.retrieve(id);
-  return { brand: pm.card?.brand ?? null, last4: pm.card?.last4 ?? null };
+  const customer =
+    typeof pm.customer === "string" ? pm.customer : (pm.customer?.id ?? null);
+  return {
+    brand: pm.card?.brand ?? null,
+    last4: pm.card?.last4 ?? null,
+    customer,
+  };
 }

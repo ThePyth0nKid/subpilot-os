@@ -78,13 +78,16 @@ export async function savePaymentMethod(
 ): Promise<void> {
   const db = getDb();
   if (!db) return;
-  await db.delete(paymentMethods).where(eq(paymentMethods.userId, userId));
-  await db.insert(paymentMethods).values({
-    userId,
-    stripeCustomerId: pm.stripeCustomerId,
-    stripePaymentMethodId: pm.stripePaymentMethodId,
-    brand: pm.brand,
-    last4: pm.last4,
+  // Atomic replace: never leave the user with zero cards if the insert fails.
+  await db.transaction(async (tx) => {
+    await tx.delete(paymentMethods).where(eq(paymentMethods.userId, userId));
+    await tx.insert(paymentMethods).values({
+      userId,
+      stripeCustomerId: pm.stripeCustomerId,
+      stripePaymentMethodId: pm.stripePaymentMethodId,
+      brand: pm.brand,
+      last4: pm.last4,
+    });
   });
 }
 

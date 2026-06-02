@@ -1,5 +1,6 @@
 import type { AgentEvent } from "@/lib/domain/events";
-import { exists, subscribe } from "@/lib/orchestrator/store";
+import { exists, ownerOf, subscribe } from "@/lib/orchestrator/store";
+import { authEnabled, getUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -19,6 +20,17 @@ export async function GET(
   const { id } = await params;
   if (!exists(id)) {
     return new Response("Unknown run", { status: 404 });
+  }
+
+  // Ownership: when auth is on, a run's owner is the only one who may stream it.
+  if (authEnabled()) {
+    const owner = ownerOf(id);
+    if (owner) {
+      const user = await getUser();
+      if (!user || user.id !== owner) {
+        return new Response("Forbidden", { status: 403 });
+      }
+    }
   }
 
   const encoder = new TextEncoder();

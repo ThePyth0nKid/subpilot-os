@@ -34,7 +34,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sign in" }, { status: 401 });
     }
     const { customerId, paymentMethodId } = BodySchema.parse(await req.json());
-    const { brand, last4 } = await retrievePaymentMethod(paymentMethodId);
+    const { brand, last4, customer } = await retrievePaymentMethod(paymentMethodId);
+    // The payment method must actually belong to the claimed customer — blocks
+    // pairing a victim's customerId with an attacker-controlled PM.
+    if (customer !== customerId) {
+      return NextResponse.json(
+        { error: "Payment method does not belong to this customer" },
+        { status: 400 },
+      );
+    }
     if (user) {
       await savePaymentMethod(user.id, {
         stripeCustomerId: customerId,

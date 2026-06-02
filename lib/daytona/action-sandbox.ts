@@ -80,10 +80,8 @@ export async function runActionInSandbox(
     PAYMENT_TOKEN: input.paymentToken ?? "",
   };
 
-  let sandboxId = "";
   return withSandbox(async (sb) => {
-    sandboxId = sb.id;
     const out = await runJs(sb, ACTION_SCRIPT);
-    return parse(out.stdout, sandboxId);
+    return parse(out.stdout, sb.id);
   }, env);
 }
