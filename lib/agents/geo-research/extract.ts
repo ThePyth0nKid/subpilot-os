@@ -32,18 +32,55 @@ If only an annual price is found, divide by 12. Also note accepted payment
 methods, catalogue/language notes (e.g. "no German UI", "local catalogue"), and
 UI languages. Set confidence by how directly the context states the price.`;
 
-/** Kernel-side extraction: Tavily (real) + Haiku, with a static fallback. */
+/** In-country page evidence fetched by the sandbox (best-effort). */
+export interface PriceEvidence {
+  readonly url: string;
+  readonly html: string;
+}
+
+/** Crude tag strip so the model spends tokens on text, not markup. */
+function htmlToText(html: string, max = 3000): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * Reject extractions that are wildly off the known regional ballpark
+ * (`FALLBACK_EUR`) — e.g. a bad scrape reading ChatGPT·TR as €0.07. Keeps the
+ * optimizer honest without trusting a single noisy number.
+ */
+function isPlausible(
+  service: Exclude<ServiceSlug, "unknown">,
+  country: string,
+  monthlyAmountMinor: number,
+  currency: string,
+): boolean {
+  const ref = FALLBACK_EUR[service][country] ?? FALLBACK_EUR[service].US ?? 10;
+  const eurEq = (monthlyAmountMinor / 100) * (EUR_PER_UNIT[currency] ?? 1);
+  return eurEq >= ref * 0.3 && eurEq <= ref * 3;
+}
+
+/** Kernel-side extraction: in-country evidence + Tavily + Haiku, with a static fallback. */
 export async function extractPrice(
   service: Exclude<ServiceSlug, "unknown">,
   country: string,
   deps: { readonly search: SearchProvider; readonly llm: LlmClient },
+  evidence?: PriceEvidence,
 ): Promise<ExtractedPrice> {
   const info = countryInfo(country);
   try {
     const query = `${service.replace("_", " ")} premium subscription price in ${info.name} 2026 per month in ${info.currency}`;
     const res = await deps.search.search(query, { country, maxResults: 5 });
     const context = [
-      res.answer ? `ANSWER: ${res.answer}` : "",
+      evidence
+        ? `IN-COUNTRY PAGE (${evidence.url}):\n${htmlToText(evidence.html)}`
+        : "",
+      res.answer ? `WEB ANSWER: ${res.answer}` : "",
       ...res.hits.map((h) => `- ${h.title} (${h.url}): ${h.snippet}`),
     ]
       .filter(Boolean)
@@ -59,11 +96,21 @@ export async function extractPrice(
     });
 
     if (extracted.monthlyAmountMinor <= 0) throw new Error("non-positive price");
+    if (
+      !isPlausible(
+        service,
+        country,
+        extracted.monthlyAmountMinor,
+        info.currency,
+      )
+    ) {
+      throw new Error("extracted price implausible vs regional reference");
+    }
 
     return {
       ...extracted,
       currency: info.currency,
-      sourceUrl: res.hits[0]?.url ?? "",
+      sourceUrl: evidence?.url || res.hits[0]?.url || "",
     };
   } catch {
     return fallbackPrice(service, country);

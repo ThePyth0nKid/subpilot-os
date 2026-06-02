@@ -6,11 +6,11 @@ import {
 import { formatMoney } from "@/lib/domain/money";
 import type { ServiceSlug } from "@/lib/domain/subscription";
 import { emitter, type OnEvent } from "@/lib/agents/emit";
-import { fanOut, runJs, withSandbox } from "@/lib/daytona/runner";
+import { fanOut, withSandbox } from "@/lib/daytona/runner";
 import type { LlmClient, ProxyProvider, SearchProvider } from "@/lib/providers";
 import { countryInfo } from "./countries";
 import { extractPrice } from "./extract";
-import { buildProbeCode, parseProbe, type ProbeResult } from "./probe";
+import { runGeoProbe, type ProbeResult } from "./probe";
 
 export interface GeoDeps {
   readonly search: SearchProvider;
@@ -22,6 +22,13 @@ export interface GeoDeps {
 }
 
 type Target = Exclude<ServiceSlug, "unknown">;
+
+/** Boost confidence on confirmed in-country egress; penalize on probe failure. */
+function scoreConfidence(probe: ProbeResult | null, base: number): number {
+  if (!probe?.ok) return Math.min(base, 0.6);
+  if (probe.inCountry) return Math.min(1, base + 0.15);
+  return base;
+}
 
 /**
  * GEO-RESEARCH AGENT (fan-out unit): one Daytona sandbox proves isolated
@@ -43,25 +50,31 @@ export async function researchOne(
   try {
     probe = await withSandbox(async (sb) => {
       sandboxId = sb.id;
-      emit("progress", `Sandbox ${sb.id.slice(0, 8)} egress via ${proxyCfg.mode} (${info.name})`, {
-        country,
-        sandboxId: sb.id,
-      });
-      const out = await runJs(sb, buildProbeCode(service, country, proxyCfg));
-      return parseProbe(out.stdout, proxyCfg.mode);
+      emit(
+        "progress",
+        `Sandbox ${sb.id.slice(0, 8)} · routing egress via ${proxyCfg.mode} (${info.name})`,
+        { country, sandboxId: sb.id },
+      );
+      const result = await runGeoProbe(sb, service, country, proxyCfg);
+      if (result.egressCountry) {
+        emit(
+          "progress",
+          `Egress confirmed ${result.egressCountry}${result.egressIp ? ` (${result.egressIp})` : ""}${result.inCountry ? " ✓ in-country" : ""}`,
+          { country, sandboxId: sb.id },
+        );
+      }
+      return result;
     });
   } catch {
     probe = null;
   }
 
-  const extracted = await extractPrice(service, country, deps);
+  const extracted = await extractPrice(service, country, deps, probe?.evidence);
   const price = {
     amountMinor: extracted.monthlyAmountMinor,
     currency: extracted.currency,
   };
-  const confidence = probe?.ok
-    ? extracted.confidence
-    : Math.min(extracted.confidence, 0.6);
+  const confidence = scoreConfidence(probe, extracted.confidence);
 
   const geo = GeoPriceResultSchema.parse({
     service,
@@ -74,7 +87,7 @@ export async function researchOne(
     uiLanguages: extracted.uiLanguages,
     sourceUrl: extracted.sourceUrl,
     capturedAt: new Date().toISOString(),
-    proxyCountry: proxyCfg.country,
+    proxyCountry: probe?.egressCountry ?? proxyCfg.country,
     confidence,
   } satisfies GeoPriceResult);
 

@@ -15,14 +15,45 @@ function daytona(): Daytona {
   return client;
 }
 
-/** Create an isolated TypeScript/JS sandbox. */
-export async function createSandbox(): Promise<Sandbox> {
-  return daytona().create({ language: "typescript" });
+/**
+ * Create an isolated TypeScript/JS sandbox. Optional `envVars` are injected
+ * into the sandbox process only — used to hand a scoped secret (e.g. a geo
+ * proxy credential or a single-use payment token) to the code running inside,
+ * never persisted by the kernel. The sandbox is destroyed on teardown.
+ */
+export async function createSandbox(
+  envVars?: Readonly<Record<string, string>>,
+): Promise<Sandbox> {
+  return daytona().create({
+    language: "typescript",
+    ...(envVars ? { envVars: { ...envVars } } : {}),
+  });
 }
 
 /** Run a JS/TS snippet inside the sandbox and collect stdout. */
 export async function runJs(sandbox: Sandbox, code: string): Promise<RunResult> {
   const res = await sandbox.process.codeRun(code);
+  const stdout = (res.result ?? res.artifacts?.stdout ?? "").toString();
+  return { exitCode: res.exitCode ?? 0, stdout };
+}
+
+/**
+ * Run a shell command inside the sandbox and collect stdout — the real-work
+ * primitive (e.g. `curl --proxy <country-ip> <pricing-url>` for geo research).
+ * `env` passes per-command variables (kept out of the kernel's process).
+ */
+export async function runShell(
+  sandbox: Sandbox,
+  command: string,
+  env?: Readonly<Record<string, string>>,
+  timeoutSec = 60,
+): Promise<RunResult> {
+  const res = await sandbox.process.executeCommand(
+    command,
+    undefined,
+    env ? { ...env } : undefined,
+    timeoutSec,
+  );
   const stdout = (res.result ?? res.artifacts?.stdout ?? "").toString();
   return { exitCode: res.exitCode ?? 0, stdout };
 }
