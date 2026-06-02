@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/lib/domain/action";
 import { AgentFeed } from "@/app/components/AgentFeed";
+import { CardForm, type SavedCard } from "@/app/components/CardForm";
 import { CountryGrid } from "@/app/components/CountryGrid";
 import { HistoryPanel } from "@/app/components/HistoryPanel";
 import { KernelStrip } from "@/app/components/KernelStrip";
@@ -45,6 +46,8 @@ export default function Home() {
   const { user } = useAuth();
   const [modes, setModes] = useState<ProviderModes | null>(null);
   const [authOn, setAuthOn] = useState(false);
+  const [stripeOn, setStripeOn] = useState(false);
+  const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [receipts, setReceipts] = useState<readonly ActionResult[]>([]);
@@ -56,9 +59,18 @@ export default function Home() {
       .then((d) => {
         setModes(d.modes ?? null);
         setAuthOn(Boolean(d.authEnabled));
+        setStripeOn(Boolean(d.stripeEnabled));
       })
       .catch(() => setModes(null));
   }, []);
+
+  useEffect(() => {
+    if (!stripeOn) return;
+    fetch("/api/stripe/payment-method")
+      .then((r) => r.json())
+      .then((d) => setSavedCard(d.paymentMethod ?? null))
+      .catch(() => setSavedCard(null));
+  }, [stripeOn, user]);
 
   const needsAuth = authOn && !user;
 
@@ -308,6 +320,32 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {/* ── Payment method ───────────────────────────────────── */}
+      {stripeOn && (
+        <section className="mt-4">
+          <div className="panel p-5">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <span className="eyebrow">Payment method · Stripe test mode</span>
+              <span className="chip" style={{ color: "var(--green)" }}>
+                <span className="dot" /> card secret only enters the action sandbox
+              </span>
+            </div>
+            {savedCard ? (
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <span className="mono" style={{ fontSize: 14 }}>
+                  {(savedCard.brand ?? "card").toUpperCase()} ···· {savedCard.last4 ?? "••••"}
+                </span>
+                <button className="btn" onClick={() => setSavedCard(null)}>
+                  Replace card
+                </button>
+              </div>
+            ) : (
+              <CardForm onSaved={setSavedCard} />
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Live pipeline ────────────────────────────────────── */}
       {started && (

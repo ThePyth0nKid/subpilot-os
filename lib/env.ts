@@ -33,6 +33,9 @@ const EnvSchema = z.object({
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: optional,
   // Persistence (optional; in-memory only until provided)
   DATABASE_URL: optional,
+  // Payment: Stripe (optional, test mode)
+  STRIPE_SECRET_KEY: optional,
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

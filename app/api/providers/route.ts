@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProviders } from "@/lib/providers";
 import { authEnabled } from "@/lib/auth";
+import { hasStripe } from "@/lib/providers/payment/stripe";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,7 @@ export async function GET() {
       llm: "anthropic",
       sandbox: "daytona",
       authEnabled: authEnabled(),
+      stripeEnabled: hasStripe(),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Provider init failed";
