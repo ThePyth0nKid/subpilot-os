@@ -1,0 +1,88 @@
+import type { AgentEvent, AgentName, EventPhase } from "@/lib/domain/events";
+import {
+  OPTIMIZABLE_SERVICES,
+  type ServiceSlug,
+  type Subscription,
+} from "@/lib/domain/subscription";
+import { ingest } from "@/lib/agents/ingest";
+import { defaultProfiles } from "@/lib/agents/interview";
+import { researchMatrix } from "@/lib/agents/geo-research";
+import { DEFAULT_COUNTRIES } from "@/lib/agents/geo-research/countries";
+import { optimize } from "@/lib/agents/optimizer";
+import { buildReport } from "@/lib/agents/report";
+import { getProviders } from "@/lib/providers";
+import { emit, markTerminal, setStatus } from "./store";
+import type { RunSnapshot } from "./types";
+
+type Target = Exclude<ServiceSlug, "unknown">;
+
+/**
+ * ORCHESTRATOR — the OS kernel. Drives the 7-agent state machine for one run,
+ * forwarding every agent's typed events onto the run's SSE stream.
+ */
+export async function runPipeline(runId: string, csv: string): Promise<void> {
+  const onEvent = (event: AgentEvent): void => emit(runId, event);
+  const kernel = (phase: EventPhase, message: string, payload?: unknown): void =>
+    onEvent({
+      runId,
+      at: new Date().toISOString(),
+      agent: "orchestrator" as AgentName,
+      phase,
+      message,
+      ...(payload === undefined ? {} : { payload }),
+    });
+
+  try {
+    kernel("started", "Kernel online · booting agent pipeline");
+
+    setStatus(runId, "ingesting");
+    const { llm, search, proxy } = getProviders();
+    const subscriptions = await ingest(csv, { llm, runId, onEvent });
+
+    setStatus(runId, "interviewing");
+    const profiles = defaultProfiles(subscriptions, { runId, onEvent });
+
+    const optimizable = subscriptions.filter(
+      (s): s is Subscription => s.optimizable,
+    );
+    const services = [
+      ...new Set(optimizable.map((s) => s.service)),
+    ].filter((s): s is Target =>
+      (OPTIMIZABLE_SERVICES as readonly ServiceSlug[]).includes(s),
+    );
+
+    setStatus(runId, "researching");
+    kernel(
+      "progress",
+      `Fanning out ${services.length * DEFAULT_COUNTRIES.length} sandboxes · ${services.length} services × ${DEFAULT_COUNTRIES.length} countries`,
+    );
+    const geoResults = await researchMatrix(services, DEFAULT_COUNTRIES, {
+      search,
+      llm,
+      proxy,
+      runId,
+      onEvent,
+      concurrency: 5,
+    });
+
+    setStatus(runId, "optimizing");
+    const optimization = optimize(optimizable, geoResults, {
+      profiles,
+      runId,
+      onEvent,
+    });
+
+    setStatus(runId, "reporting");
+    const report = buildReport(optimization, { runId, onEvent });
+
+    const snapshot: RunSnapshot = { subscriptions, optimization, report };
+    setStatus(runId, "done");
+    kernel("completed", report.headline, snapshot);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Run failed";
+    setStatus(runId, "error");
+    kernel("error", message);
+  } finally {
+    markTerminal(runId);
+  }
+}

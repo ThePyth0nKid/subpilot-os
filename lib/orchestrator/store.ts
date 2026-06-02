@@ -1,0 +1,67 @@
+import type { AgentEvent } from "@/lib/domain/events";
+import type { RunStatus } from "./types";
+
+type Listener = (event: AgentEvent) => void;
+
+interface RunRecord {
+  readonly id: string;
+  status: RunStatus;
+  events: readonly AgentEvent[];
+  readonly listeners: Set<Listener>;
+  terminal: boolean;
+}
+
+/**
+ * In-memory run store with a tiny pub/sub so the SSE route can stream live
+ * events and replay anything a late subscriber missed. Single-process; fine
+ * for the demo (a real build would back this with Redis/Durable Objects).
+ */
+const runs = new Map<string, RunRecord>();
+
+function newId(): string {
+  return `run_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+export function createRun(): string {
+  const id = newId();
+  runs.set(id, {
+    id,
+    status: "idle",
+    events: [],
+    listeners: new Set(),
+    terminal: false,
+  });
+  return id;
+}
+
+export function setStatus(id: string, status: RunStatus): void {
+  const r = runs.get(id);
+  if (r) r.status = status;
+}
+
+export function emit(id: string, event: AgentEvent): void {
+  const r = runs.get(id);
+  if (!r) return;
+  r.events = [...r.events, event]; // immutable append
+  for (const listener of r.listeners) listener(event);
+}
+
+export function markTerminal(id: string): void {
+  const r = runs.get(id);
+  if (r) r.terminal = true;
+}
+
+/** Register a listener, replaying buffered events first (sync — no interleave). */
+export function subscribe(id: string, listener: Listener): () => void {
+  const r = runs.get(id);
+  if (!r) return () => {};
+  r.listeners.add(listener);
+  for (const event of r.events) listener(event);
+  return () => {
+    r.listeners.delete(listener);
+  };
+}
+
+export function exists(id: string): boolean {
+  return runs.has(id);
+}
