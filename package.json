@@ -9,7 +9,12 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "cli": "tsx cli/subpilot.ts",
+    "mcp": "tsx mcp/server.ts"
+  },
+  "bin": {
+    "subpilot": "./cli/subpilot.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
