@@ -9,6 +9,9 @@ interface SavingsPlanProps {
   readonly snapshot: RunSnapshot;
   readonly executing: boolean;
   readonly onExecute: () => void;
+  readonly liveMode: boolean;
+  readonly onToggleLive: (live: boolean) => void;
+  readonly hasCard: boolean;
 }
 
 function RiskBadge({ level }: { level: "low" | "medium" | "high" }) {
@@ -102,7 +105,14 @@ function RecCard({
 }
 
 /** The savings plan — per-subscription recommendations + the Execute action. */
-export function SavingsPlan({ snapshot, executing, onExecute }: SavingsPlanProps) {
+export function SavingsPlan({
+  snapshot,
+  executing,
+  onExecute,
+  liveMode,
+  onToggleLive,
+  hasCard,
+}: SavingsPlanProps) {
   const { subscriptions, optimization, report } = snapshot;
   const subById = new Map(subscriptions.map((s) => [s.id, s]));
   const recs = [...optimization.recommendations].sort(
@@ -115,15 +125,36 @@ export function SavingsPlan({ snapshot, executing, onExecute }: SavingsPlanProps
     <div className="panel p-5 reveal">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <span className="eyebrow">Savings plan</span>
-        <button
-          className="btn btn-gold"
-          onClick={onExecute}
-          disabled={executing || !hasSwitches}
-        >
-          {executing
-            ? "Executing dry run…"
-            : `Execute ${report.switchCount} switches (dry run)`}
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label
+            className="chip"
+            style={{
+              textTransform: "none",
+              cursor: hasCard ? "pointer" : "not-allowed",
+              opacity: hasCard ? 1 : 0.5,
+              color: liveMode ? "var(--gold)" : "var(--ink-dim)",
+            }}
+            title={hasCard ? "Toggle live execution" : "Add a card to enable live"}
+          >
+            <input
+              type="checkbox"
+              checked={liveMode}
+              disabled={!hasCard}
+              onChange={(e) => onToggleLive(e.target.checked)}
+              style={{ accentColor: "var(--gold)" }}
+            />
+            {liveMode ? "Live (test charge)" : "Dry run"}
+          </label>
+          <button
+            className="btn btn-gold"
+            onClick={onExecute}
+            disabled={executing || !hasSwitches}
+          >
+            {executing
+              ? "Executing in sandboxes…"
+              : `Execute ${report.switchCount} switch${report.switchCount === 1 ? "" : "es"} ${liveMode ? "(live)" : "(dry run)"}`}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">

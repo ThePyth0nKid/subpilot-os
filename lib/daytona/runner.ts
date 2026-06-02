@@ -67,11 +67,12 @@ export async function teardown(sandbox: Sandbox): Promise<void> {
   }
 }
 
-/** Create → use → always tear down. */
+/** Create → use → always tear down. Optional `envVars` seed the sandbox env. */
 export async function withSandbox<R>(
   fn: (sandbox: Sandbox) => Promise<R>,
+  envVars?: Readonly<Record<string, string>>,
 ): Promise<R> {
-  const sandbox = await createSandbox();
+  const sandbox = await createSandbox(envVars);
   try {
     return await fn(sandbox);
   } finally {

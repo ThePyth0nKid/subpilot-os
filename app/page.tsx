@@ -50,6 +50,7 @@ export default function Home() {
   const [savedCard, setSavedCard] = useState<SavedCard | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [executing, setExecuting] = useState(false);
+  const [liveMode, setLiveMode] = useState(false);
   const [receipts, setReceipts] = useState<readonly ActionResult[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -150,7 +151,12 @@ export default function Home() {
       const res = await fetch("/api/act", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orders, dryRun: true }),
+        body: JSON.stringify({
+          orders,
+          dryRun: !liveMode,
+          consent: liveMode,
+          paymentToken: savedCard?.id,
+        }),
       });
       const data = (await res.json()) as { results?: ActionResult[] };
       setReceipts(data.results ?? []);
@@ -159,7 +165,7 @@ export default function Home() {
     } finally {
       setExecuting(false);
     }
-  }, [snapshot]);
+  }, [snapshot, liveMode, savedCard]);
 
   const started = status !== "idle";
 
@@ -365,7 +371,14 @@ export default function Home() {
       {/* ── Results ──────────────────────────────────────────── */}
       {snapshot && (
         <section className="mt-6">
-          <SavingsPlan snapshot={snapshot} executing={executing} onExecute={onExecute} />
+          <SavingsPlan
+            snapshot={snapshot}
+            executing={executing}
+            onExecute={onExecute}
+            liveMode={liveMode}
+            onToggleLive={setLiveMode}
+            hasCard={Boolean(savedCard)}
+          />
         </section>
       )}
 
