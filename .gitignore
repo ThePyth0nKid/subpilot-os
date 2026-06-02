@@ -1,0 +1,33 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+build/
+dist/
+
+# env & secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+.vscode/
+.idea/
+
+# planning (local working memory)
+.planning/
+
+# misc
+*.tsbuildinfo
+.vercel
+coverage/
