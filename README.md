@@ -26,7 +26,7 @@ Full data contracts & state machine: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.
 
 ## Stack
 
-Next.js + TypeScript · Claude (Sonnet + Haiku) · Daytona Sandboxes · Bright Data Proxy · Tavily Search · Bitrefill Payment
+Next.js + TypeScript · Claude (Sonnet + Haiku) · Daytona Sandboxes · Bright Data Proxy · Tavily Search · Bitrefill Payment · **WorkOS AuthKit** (login) · **Stripe** (card capture, test mode) · **Postgres/Drizzle** (per-user history) · **MCP server + CLI** (drive it from any agent)
 
 ## Status (hackathon, 1h build target)
 
@@ -43,6 +43,34 @@ pnpm dev                     # http://localhost:3000
 ```
 
 Drop [`fixtures/sample-bank-statement.csv`](fixtures/sample-bank-statement.csv) into the upload box.
+
+> Every integration is **optional and graceful**: with no keys the app runs in open demo mode (mock proxy/payment, no login, in-memory runs). Add keys to `.env.local` to light each up — WorkOS (login), `DATABASE_URL` (history; then `npm run db:push`), Stripe test keys (card capture), Bright Data (real in-country routing), Bitrefill (real purchase).
+
+## Run it from your terminal — CLI + MCP (for Cursor / Claude Code)
+
+**CLI** (live agent feed in the terminal, reuses the same pipeline):
+
+```bash
+npx tsx cli/subpilot.ts scan    fixtures/sample-bank-statement.csv   # detect subs
+npx tsx cli/subpilot.ts run     fixtures/sample-bank-statement.csv   # full pipeline → €/mo saved
+npx tsx cli/subpilot.ts execute fixtures/sample-bank-statement.csv   # + dry-run switches in sandboxes
+```
+
+**MCP server** — exposes `scan_statement`, `research_prices`, `optimize`, `execute_switch` so any agent can drive SubPilot:
+
+```bash
+# Claude Code
+claude mcp add subpilot -- npx tsx mcp/server.ts
+```
+
+```jsonc
+// Cursor — .cursor/mcp.json
+{
+  "mcpServers": {
+    "subpilot": { "command": "npx", "args": ["tsx", "mcp/server.ts"], "cwd": "/abs/path/to/SubPilot" }
+  }
+}
+```
 
 ## Build it (autonomous agent)
 

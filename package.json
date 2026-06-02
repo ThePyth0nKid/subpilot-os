@@ -19,6 +19,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
     "@daytonaio/sdk": "^0.183.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.7.0",
     "@workos-inc/authkit-nextjs": "^4.1.1",
