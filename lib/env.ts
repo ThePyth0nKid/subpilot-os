@@ -31,6 +31,8 @@ const EnvSchema = z.object({
   WORKOS_CLIENT_ID: optional,
   WORKOS_COOKIE_PASSWORD: optional,
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: optional,
+  // Persistence (optional; in-memory only until provided)
+  DATABASE_URL: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

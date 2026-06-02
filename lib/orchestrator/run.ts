@@ -11,6 +11,7 @@ import { DEFAULT_COUNTRIES } from "@/lib/agents/geo-research/countries";
 import { optimize } from "@/lib/agents/optimizer";
 import { buildReport } from "@/lib/agents/report";
 import { getProviders } from "@/lib/providers";
+import { persistRun } from "@/lib/db/repo";
 import { emit, markTerminal, setStatus } from "./store";
 import type { RunSnapshot } from "./types";
 
@@ -20,7 +21,11 @@ type Target = Exclude<ServiceSlug, "unknown">;
  * ORCHESTRATOR — the OS kernel. Drives the 7-agent state machine for one run,
  * forwarding every agent's typed events onto the run's SSE stream.
  */
-export async function runPipeline(runId: string, csv: string): Promise<void> {
+export async function runPipeline(
+  runId: string,
+  csv: string,
+  userId?: string,
+): Promise<void> {
   const onEvent = (event: AgentEvent): void => emit(runId, event);
   const kernel = (phase: EventPhase, message: string, payload?: unknown): void =>
     onEvent({
@@ -77,6 +82,9 @@ export async function runPipeline(runId: string, csv: string): Promise<void> {
 
     const snapshot: RunSnapshot = { subscriptions, optimization, report };
     setStatus(runId, "done");
+    await persistRun({ id: runId, userId, snapshot }).catch(() => {
+      /* persistence is best-effort; never fail the run on a DB hiccup */
+    });
     kernel("completed", report.headline, snapshot);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Run failed";

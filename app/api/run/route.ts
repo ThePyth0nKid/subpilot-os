@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createRun } from "@/lib/orchestrator/store";
 import { runPipeline } from "@/lib/orchestrator/run";
 import { authEnabled, getUser } from "@/lib/auth";
+import { upsertUser } from "@/lib/db/repo";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -36,9 +37,10 @@ export async function POST(req: Request) {
     if (!csv.trim()) {
       return NextResponse.json({ error: "Empty CSV body" }, { status: 400 });
     }
+    if (user) await upsertUser(user.id, user.email).catch(() => {});
     const runId = createRun(user?.id);
     // Fire-and-forget: the pipeline streams its progress over SSE.
-    void runPipeline(runId, csv);
+    void runPipeline(runId, csv, user?.id);
     return NextResponse.json({ runId });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to start run";

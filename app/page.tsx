@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/lib/domain/action";
 import { AgentFeed } from "@/app/components/AgentFeed";
 import { CountryGrid } from "@/app/components/CountryGrid";
+import { HistoryPanel } from "@/app/components/HistoryPanel";
 import { KernelStrip } from "@/app/components/KernelStrip";
 import { ReceiptPanel } from "@/app/components/ReceiptPanel";
 import { SavingsPlan } from "@/app/components/SavingsPlan";
@@ -60,6 +61,11 @@ export default function Home() {
   }, []);
 
   const needsAuth = authOn && !user;
+
+  const [historyTick, setHistoryTick] = useState(0);
+  useEffect(() => {
+    if (status === "done") setHistoryTick((t) => t + 1);
+  }, [status]);
 
   const monthlySaved = snapshot?.report.totalMonthlySavingsEUR ?? 0;
   const animatedSaved = useCountUp(monthlySaved, status === "done");
@@ -330,6 +336,10 @@ export default function Home() {
           <ReceiptPanel receipts={receipts} monthlySaved={monthlySaved} />
         </section>
       )}
+
+      <section className="mt-6">
+        <HistoryPanel enabled={Boolean(authOn && user)} refreshKey={historyTick} />
+      </section>
 
       <footer className="mt-16 mb-6 flex items-center justify-between flex-wrap gap-3">
         <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>
