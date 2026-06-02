@@ -31,3 +31,13 @@ npm-debug.log*
 *.tsbuildinfo
 .vercel
 coverage/
+
+# next.js / node
+/.next/
+/out/
+/build
+node_modules
+.next
+next-env.d.ts
+*.tsbuildinfo
+.vercel
