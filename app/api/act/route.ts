@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ServiceSlugSchema } from "@/lib/domain/subscription";
 import { authEnabled, getUser } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/ratelimit";
 import { runActions, type ActOrder } from "@/lib/agents/action";
 
 export const runtime = "nodejs";
@@ -30,9 +31,13 @@ const BodySchema = z.object({
  */
 export async function POST(req: Request) {
   try {
-    if (authEnabled() && !(await getUser())) {
+    const user = await getUser();
+    if (authEnabled() && !user) {
       return NextResponse.json({ error: "Sign in to execute" }, { status: 401 });
     }
+    // Cap sandboxed switch execution per caller (each order runs real work).
+    const limited = enforceRateLimit(req, "act", user);
+    if (limited) return limited;
     const { orders, dryRun, paymentToken, consent } = BodySchema.parse(
       await req.json(),
     );

@@ -36,6 +36,11 @@ const EnvSchema = z.object({
   // Payment: Stripe (optional, test mode)
   STRIPE_SECRET_KEY: optional,
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: optional,
+  // Rate limiting (optional; in-memory limiter is ON by default — see lib/ratelimit)
+  RATE_LIMIT_DISABLED: optional,
+  RATE_LIMIT_RUN_PER_MINUTE: optional,
+  RATE_LIMIT_ACT_PER_MINUTE: optional,
+  RATE_LIMIT_STRIPE_PER_MINUTE: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;

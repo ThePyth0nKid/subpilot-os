@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createRun } from "@/lib/orchestrator/store";
 import { runPipeline } from "@/lib/orchestrator/run";
 import { authEnabled, getUser } from "@/lib/auth";
+import { enforceRateLimit } from "@/lib/ratelimit";
 import { upsertUser } from "@/lib/db/repo";
 
 export const runtime = "nodejs";
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
     if (authEnabled() && !user) {
       return NextResponse.json({ error: "Sign in to run an optimization" }, { status: 401 });
     }
+    // Cap the expensive Daytona + LLM + Tavily fan-out per caller before it starts.
+    const limited = enforceRateLimit(req, "run", user);
+    if (limited) return limited;
     const csv = await readCsv(req);
     if (!csv.trim()) {
       return NextResponse.json({ error: "Empty CSV body" }, { status: 400 });
