@@ -273,4 +273,12 @@ const CYR_E = String.fromCharCode(0x0415); // Cyrillic 'Е' homoglyph of Latin '
   assert(has(out, "SPOTIFY") && has(out, "PREMIUM"), "22: brand + plan survive");
 }
 
+// ── 23. Long number after an abbreviation dot (RE.2026001102) is redacted ──
+{
+  const out = redactMerchant("ETL RE.2026001102/DAT NETTO 61.46");
+  assert(!has(out, "2026001102"), "23: invoice no. after an abbreviation dot is redacted");
+  assert(has(out, "[ACCT]"), "23: → [ACCT]");
+  assert(has(redactMerchant("rate 0.3163265306122449"), "0.3163265306122449"), "23: a true decimal fraction is still preserved");
+}
+
 console.log("[smoke-anonymize] PASS");

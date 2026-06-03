@@ -37,21 +37,22 @@ export const STRUCTURAL_RULES: readonly RedactionRule[] = [
   {
     id: "card",
     replacement: "[CARD]",
-    // 16-digit PAN with optional space/hyphen grouping. Lookbehind/lookahead
-    // (not \b) so a 16-digit decimal fraction ("0.3163265306122449") is not
-    // mistaken for a PAN — \b would fire after the leading dot.
-    source: String.raw`(?<![.\d])\d{4}(?:[ \-]?\d{4}){3}(?![.\d])`,
+    // 16-digit PAN with optional space/hyphen grouping. The (?<!\d)(?<!\d\.)
+    // lookbehind skips a true decimal fraction ("0.3163…") while still redacting
+    // a number after an abbreviation dot ("RE.4242…"); the lookahead avoids a
+    // decimal's integer part.
+    source: String.raw`(?<!\d)(?<!\d\.)\d{4}(?:[ \-]?\d{4}){3}(?![.\d])`,
     flags: "g",
   },
   {
     id: "acct",
     replacement: "[ACCT]",
-    // >= 9 digits (account / reference numbers), grouped by space or hyphen only.
-    // Lookbehind/lookahead anchor the WHOLE numeric token so a long decimal
-    // fraction (0.3163265306122449, FX 1.00456789) is never misread as an
-    // account number. `.` is intentionally NOT a separator here (banks group
-    // account numbers with spaces/hyphens; dots appear in amounts).
-    source: String.raw`(?<![.\d])\d(?:[ \-]?\d){8,}(?![.\d])`,
+    // >= 9 digits (account / reference / invoice numbers), grouped by space or
+    // hyphen only. The (?<!\d)(?<!\d\.) lookbehind skips a true decimal fraction
+    // ("0.3163265306122449") but STILL redacts a long number after an
+    // abbreviation dot ("RE.2026001102") — a real invoice/PII leak. `.` is not a
+    // separator here (banks group with spaces/hyphens; dots appear in amounts).
+    source: String.raw`(?<!\d)(?<!\d\.)\d(?:[ \-]?\d){8,}(?![.\d])`,
     flags: "g",
     digitRun: true,
   },
