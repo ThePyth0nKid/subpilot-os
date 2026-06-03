@@ -18,7 +18,8 @@ const EnvSchema = z.object({
   // Required (real services)
   DAYTONA_API_KEY: z.string().min(1),
   ANTHROPIC_API_KEY: z.string().min(1),
-  TAVILY_API_KEY: z.string().min(1),
+  // Optional — falls back to mock search when absent (see getProviders).
+  TAVILY_API_KEY: optional,
   // Optional (mock until provided)
   BRIGHTDATA_HOST: optional,
   BRIGHTDATA_PORT: optional,
@@ -52,7 +53,7 @@ export function loadEnv(): Env {
     throw new Error(
       `Missing/invalid environment variables: ${missing}. ` +
         `Add them to .env.local (see .env.example). ` +
-        `Required: DAYTONA_API_KEY, ANTHROPIC_API_KEY, TAVILY_API_KEY.`,
+        `Required: DAYTONA_API_KEY, ANTHROPIC_API_KEY.`,
     );
   }
   cached = parsed.data;

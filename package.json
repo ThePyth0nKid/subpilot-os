@@ -11,7 +11,9 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "cli": "tsx cli/subpilot.ts",
-    "mcp": "tsx mcp/server.ts"
+    "mcp": "tsx mcp/server.ts",
+    "smoke:login-redaction": "tsx scripts/smoke-login-redaction.ts",
+    "smoke:login-proof": "tsx scripts/smoke-login-proof.ts"
   },
   "bin": {
     "subpilot": "./cli/subpilot.ts"
