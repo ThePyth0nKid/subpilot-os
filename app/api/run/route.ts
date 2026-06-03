@@ -3,30 +3,11 @@ import { createRun } from "@/lib/orchestrator/store";
 import { runPipeline } from "@/lib/orchestrator/run";
 import { authEnabled, getUser } from "@/lib/auth";
 import { hasPII } from "@/lib/anonymize";
+import { readStatement } from "@/lib/agents/ingest/read-statement";
 import { upsertUser } from "@/lib/db/repo";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-/** Read CSV from multipart `file`, JSON `{ csv }`, or a raw text body. */
-async function readCsv(req: Request): Promise<string> {
-  const ct = req.headers.get("content-type") ?? "";
-  if (ct.includes("multipart/form-data")) {
-    const form = await req.formData();
-    const file = form.get("file");
-    if (file instanceof File) return await file.text();
-    const csv = form.get("csv");
-    if (typeof csv === "string") return csv;
-    throw new Error("multipart body missing `file` or `csv` field");
-  }
-  const text = await req.text();
-  if (ct.includes("application/json") || text.trimStart().startsWith("{")) {
-    const body = JSON.parse(text) as { csv?: string };
-    if (!body.csv) throw new Error("JSON body missing `csv` field");
-    return body.csv;
-  }
-  return text;
-}
 
 export async function POST(req: Request) {
   try {
@@ -34,9 +15,9 @@ export async function POST(req: Request) {
     if (authEnabled() && !user) {
       return NextResponse.json({ error: "Sign in to run an optimization" }, { status: 401 });
     }
-    const csv = await readCsv(req);
+    const csv = await readStatement(req); // CSV text or PDF → canonical CSV
     if (!csv.trim()) {
-      return NextResponse.json({ error: "Empty CSV body" }, { status: 400 });
+      return NextResponse.json({ error: "Empty statement" }, { status: 400 });
     }
     if (csv.length > 500_000) {
       return NextResponse.json(
