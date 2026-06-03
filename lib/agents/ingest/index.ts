@@ -1,3 +1,4 @@
+import { assertNoPII } from "@/lib/anonymize";
 import { toMonthlyEUR } from "@/lib/domain/fx";
 import {
   OPTIMIZABLE_SERVICES,
@@ -16,6 +17,8 @@ export interface IngestArgs {
   readonly llm: LlmClient;
   readonly runId?: string;
   readonly onEvent?: OnEvent;
+  /** Optional explicit account-holder names to redact (server-side, from env). */
+  readonly holderNames?: readonly string[];
 }
 
 function toSubscription(
@@ -54,12 +57,14 @@ function toSubscription(
  */
 export async function ingest(
   rawCsv: string,
-  { llm, runId = "local", onEvent }: IngestArgs,
+  { llm, runId = "local", onEvent, holderNames }: IngestArgs,
 ): Promise<readonly Subscription[]> {
   const emit = emitter("ingest", runId, onEvent);
   emit("started", "Parsing bank statement…");
 
-  const txs = parseCsv(rawCsv);
+  const txs = parseCsv(rawCsv, { holderNames });
+  // Fail-closed: no PII may survive projection+redaction into the pipeline.
+  assertNoPII(txs);
   const candidates = clusterRecurring(txs);
   emit(
     "progress",
@@ -68,6 +73,9 @@ export async function ingest(
 
   const classMap = await classifyCandidates(candidates, llm);
   const subscriptions = candidates.map((c, i) => toSubscription(c, classMap.get(i)));
+
+  // Backstop before anything reaches the SSE payload / DB snapshot.
+  assertNoPII(subscriptions);
 
   const optimizable = subscriptions.filter((s) => s.optimizable);
   emit(

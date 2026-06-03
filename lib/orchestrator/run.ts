@@ -11,9 +11,26 @@ import { DEFAULT_COUNTRIES } from "@/lib/agents/geo-research/countries";
 import { optimize } from "@/lib/agents/optimizer";
 import { buildReport } from "@/lib/agents/report";
 import { getProviders } from "@/lib/providers";
+import { hasPII } from "@/lib/anonymize";
+import { holderNames, loadEnv } from "@/lib/env";
 import { persistRun } from "@/lib/db/repo";
 import { emit, markTerminal, setStatus } from "./store";
 import type { RunSnapshot } from "./types";
+
+/** Holder names from env, never crashing the pipeline if env is incomplete. */
+function serverHolderNames(): readonly string[] {
+  try {
+    return holderNames(loadEnv());
+  } catch {
+    return [];
+  }
+}
+
+/** Never surface a raw error string that might echo a CSV/PII fragment. */
+function safeErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "Run failed";
+  return hasPII(raw) ? "Run failed (could not process input)" : raw;
+}
 
 type Target = Exclude<ServiceSlug, "unknown">;
 
@@ -42,7 +59,12 @@ export async function runPipeline(
 
     setStatus(runId, "ingesting");
     const { llm, search, proxy } = getProviders();
-    const subscriptions = await ingest(csv, { llm, runId, onEvent });
+    const subscriptions = await ingest(csv, {
+      llm,
+      runId,
+      onEvent,
+      holderNames: serverHolderNames(),
+    });
 
     setStatus(runId, "interviewing");
     const profiles = defaultProfiles(subscriptions, { runId, onEvent });
@@ -87,9 +109,8 @@ export async function runPipeline(
     });
     kernel("completed", report.headline, snapshot);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Run failed";
     setStatus(runId, "error");
-    kernel("error", message);
+    kernel("error", safeErrorMessage(err));
   } finally {
     markTerminal(runId);
   }

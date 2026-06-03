@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "cli": "tsx cli/subpilot.ts",
     "mcp": "tsx mcp/server.ts",
+    "smoke:anonymize": "tsx scripts/smoke-anonymize.ts",
     "smoke:login-redaction": "tsx scripts/smoke-login-redaction.ts",
     "smoke:login-proof": "tsx scripts/smoke-login-proof.ts",
     "smoke:switch-reducer": "tsx scripts/smoke-switch-reducer.ts",

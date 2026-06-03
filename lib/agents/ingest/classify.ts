@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertNoPII } from "@/lib/anonymize";
 import type { LlmClient } from "@/lib/providers";
 import { MODELS } from "@/lib/providers";
 import { BillingIntervalSchema, ServiceSlugSchema } from "@/lib/domain/subscription";
@@ -49,6 +50,9 @@ export async function classifyCandidates(
     null,
     2,
   );
+
+  // Hard invariant: the LLM must NEVER receive PII. Fail closed before the call.
+  assertNoPII(user);
 
   const result = await llm.extract({
     model: MODELS.haiku,

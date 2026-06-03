@@ -1,3 +1,4 @@
+import { REDACTION_PLACEHOLDER_WORDS } from "@/lib/anonymize";
 import type { Transaction } from "@/lib/domain/transaction";
 
 /** A recurring-charge candidate detected before any LLM involvement. */
@@ -12,13 +13,18 @@ export interface RecurringCandidate {
   readonly sourceTransactionIds: readonly string[];
 }
 
-/** First meaningful alphabetic token of a payee description (digits stripped). */
+/**
+ * First meaningful alphabetic token of a payee description (digits stripped).
+ * The description is already redacted, so redaction placeholders ([IBAN],
+ * [ACCT], …) are skipped — the brand token (NETFLIX) stays the cluster key even
+ * when a redacted PII fragment precedes it.
+ */
 export function merchantKey(description: string): string {
   const tokens = description
     .toUpperCase()
     .replace(/[^A-Z ]+/g, " ")
     .split(/\s+/)
-    .filter((t) => t.length >= 3);
+    .filter((t) => t.length >= 3 && !REDACTION_PLACEHOLDER_WORDS.has(t));
   return tokens[0] ?? description.toUpperCase().trim();
 }
 

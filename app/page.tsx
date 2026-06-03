@@ -10,6 +10,7 @@ import { KernelStrip } from "@/app/components/KernelStrip";
 import { ReceiptPanel } from "@/app/components/ReceiptPanel";
 import { SavingsPlan } from "@/app/components/SavingsPlan";
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
+import { redactCsvText } from "@/lib/anonymize";
 import { eur } from "@/lib/ui/meta";
 import { useRun } from "@/lib/ui/useRun";
 
@@ -108,8 +109,16 @@ export default function Home() {
         window.location.href = "/login";
         return;
       }
+      // Anonymize in the browser BEFORE upload — raw PII never leaves the device.
+      // Fail closed: if local redaction throws, don't upload (server still guards).
+      let safeCsv: string;
+      try {
+        safeCsv = redactCsvText(csv);
+      } catch {
+        return;
+      }
       setReceipts([]);
-      void start(csv);
+      void start(safeCsv);
     },
     [start, authOn, user],
   );

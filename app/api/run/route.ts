@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createRun } from "@/lib/orchestrator/store";
 import { runPipeline } from "@/lib/orchestrator/run";
 import { authEnabled, getUser } from "@/lib/auth";
+import { hasPII } from "@/lib/anonymize";
 import { upsertUser } from "@/lib/db/repo";
 
 export const runtime = "nodejs";
@@ -49,7 +50,8 @@ export async function POST(req: Request) {
     void runPipeline(runId, csv, user?.id);
     return NextResponse.json({ runId });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to start run";
+    const raw = err instanceof Error ? err.message : "Failed to start run";
+    const message = hasPII(raw) ? "Failed to start run (invalid input)" : raw;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

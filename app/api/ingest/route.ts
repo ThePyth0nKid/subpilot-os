@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ingest } from "@/lib/agents/ingest";
+import { hasPII } from "@/lib/anonymize";
 import { getProviders } from "@/lib/providers";
 
 export const runtime = "nodejs";
@@ -35,7 +36,8 @@ export async function POST(req: Request) {
     const subscriptions = await ingest(csv, { llm });
     return NextResponse.json({ subscriptions });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Ingest failed";
+    const raw = err instanceof Error ? err.message : "Ingest failed";
+    const message = hasPII(raw) ? "Ingest failed (invalid input)" : raw;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

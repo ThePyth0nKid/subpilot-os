@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseHolderNames } from "@/lib/anonymize";
 
 /**
  * Typed, validated environment access.
@@ -37,6 +38,8 @@ const EnvSchema = z.object({
   // Payment: Stripe (optional, test mode)
   STRIPE_SECRET_KEY: optional,
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: optional,
+  // Privacy: optional account-holder names to redact from statements (comma-separated).
+  HOLDER_NAMES: optional,
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -80,4 +83,9 @@ export function hasWorkOS(env: Env): boolean {
   return Boolean(
     env.WORKOS_API_KEY && env.WORKOS_CLIENT_ID && env.WORKOS_COOKIE_PASSWORD,
   );
+}
+
+/** Explicit account-holder names to redact from statements (empty = structural redaction only). */
+export function holderNames(env: Env): readonly string[] {
+  return parseHolderNames(env.HOLDER_NAMES);
 }
