@@ -1,3 +1,4 @@
+import { redactCsvText } from "@/lib/anonymize";
 import { pdfStatementToCsv } from "./pdf";
 
 const MAX_UPLOAD_BYTES = 10_000_000; // 10 MB — guards against OOM on a huge upload
@@ -27,7 +28,9 @@ export async function readStatement(req: Request): Promise<string> {
       if (isPdf(file)) {
         return await pdfStatementToCsv(new Uint8Array(await file.arrayBuffer()));
       }
-      return await file.text();
+      // A CSV arriving as a multipart FILE skipped the browser-side redaction —
+      // redact immediately so this path upholds the same invariant.
+      return redactCsvText(await file.text());
     }
     const csv = form.get("csv");
     if (typeof csv === "string") return csv;

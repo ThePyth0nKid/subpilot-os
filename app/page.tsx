@@ -53,6 +53,7 @@ export default function Home() {
   const [executing, setExecuting] = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [receipts, setReceipts] = useState<readonly ActionResult[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -104,21 +105,30 @@ export default function Home() {
   }, [snapshot]);
 
   const runWith = useCallback(
-    (csv: string) => {
+    (statement: string | File) => {
       if (authOn && !user) {
         window.location.href = "/login";
         return;
       }
-      // Anonymize in the browser BEFORE upload — raw PII never leaves the device.
-      // Fail closed: if local redaction throws, don't upload (server still guards).
-      let safeCsv: string;
-      try {
-        safeCsv = redactCsvText(csv);
-      } catch {
+      setUploadError(null);
+      if (typeof statement === "string") {
+        // CSV: anonymize in the browser BEFORE upload — raw PII never leaves the
+        // device. Fail closed: if local redaction throws, don't upload.
+        let safeCsv: string;
+        try {
+          safeCsv = redactCsvText(statement);
+        } catch {
+          setUploadError("Could not anonymize the file locally — nothing was uploaded.");
+          return;
+        }
+        setReceipts([]);
+        void start(safeCsv);
         return;
       }
+      // PDF: binary goes as multipart; it is extracted and anonymized
+      // server-side BEFORE any processing, LLM call, or persistence.
       setReceipts([]);
-      void start(safeCsv);
+      void start(statement);
     },
     [start, authOn, user],
   );
@@ -136,7 +146,10 @@ export default function Home() {
     async (files: FileList | null) => {
       const file = files?.[0];
       if (!file) return;
-      runWith(await file.text());
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
+      runWith(isPdf ? file : await file.text());
     },
     [runWith],
   );
@@ -292,22 +305,23 @@ export default function Home() {
           onDrop={(e) => {
             e.preventDefault();
             setDragOver(false);
-            void onFiles(e.dataTransfer.files);
+            if (!running) void onFiles(e.dataTransfer.files);
           }}
         >
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <div style={{ fontWeight: 600, fontSize: 16 }}>
                 Drop your bank statement
-                <span style={{ color: "var(--ink-faint)" }}> .csv</span>
+                <span style={{ color: "var(--ink-faint)" }}> .csv / .pdf</span>
               </div>
               <div className="mono" style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>
-                parsed locally · keys never enter sandboxes · dry-run only
+                anonymized before processing — CSV in your browser, PDF on the
+                server · IBANs &amp; account numbers never reach the AI · dry-run only
               </div>
             </div>
             <div className="flex items-center gap-3">
               <button className="btn" onClick={() => fileRef.current?.click()} disabled={running}>
-                Upload CSV
+                Upload statement
               </button>
               <button className="btn btn-gold" onClick={onTryDemo} disabled={running}>
                 {running
@@ -321,16 +335,16 @@ export default function Home() {
           <input
             ref={fileRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,.pdf,application/pdf"
             hidden
             onChange={(e) => void onFiles(e.target.files)}
           />
-          {error && (
+          {(error ?? uploadError) && (
             <div
               className="mt-4 panel-inset p-3 mono"
               style={{ fontSize: 12, color: "var(--red)", borderColor: "rgba(255,107,107,0.4)" }}
             >
-              ✕ {error}
+              ✕ {error ?? uploadError}
             </div>
           )}
         </div>
