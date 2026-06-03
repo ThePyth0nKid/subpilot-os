@@ -33,35 +33,47 @@ You receive recurring bank charges already detected as candidates. For EACH cand
 - confidence: 0..1 how sure you are of the service mapping.
 Return one classification per candidate, preserving the given index.`;
 
+/**
+ * Real statements yield dozens of candidates; one giant call overflows the
+ * output budget and truncates the tool JSON (classifications → undefined).
+ * Chunking keeps every response comfortably inside maxTokens.
+ */
+const BATCH_SIZE = 20;
+
 /** Haiku batch classification of recurring candidates → service mapping. */
 export async function classifyCandidates(
   candidates: readonly RecurringCandidate[],
   llm: LlmClient,
 ): Promise<ReadonlyMap<number, Classification>> {
-  if (candidates.length === 0) return new Map();
+  const out = new Map<number, Classification>();
 
-  const user = JSON.stringify(
-    candidates.map((c, index) => ({
-      index,
-      merchantRaw: c.merchantRaw,
-      monthlyAmount: `${(c.monthlyAmountMinor / 100).toFixed(2)} ${c.currency}`,
-      occurrences: c.occurrences,
-    })),
-    null,
-    2,
-  );
+  for (let start = 0; start < candidates.length; start += BATCH_SIZE) {
+    const slice = candidates.slice(start, start + BATCH_SIZE);
+    const user = JSON.stringify(
+      slice.map((c, i) => ({
+        index: start + i, // GLOBAL candidate index — the caller keys on it
+        merchantRaw: c.merchantRaw,
+        monthlyAmount: `${(c.monthlyAmountMinor / 100).toFixed(2)} ${c.currency}`,
+        occurrences: c.occurrences,
+      })),
+      null,
+      2,
+    );
 
-  // Hard invariant: the LLM must NEVER receive PII. Fail closed before the call.
-  assertNoPII(user);
+    // Hard invariant: the LLM must NEVER receive PII. Fail closed before the call.
+    assertNoPII(user);
 
-  const result = await llm.extract({
-    model: MODELS.haiku,
-    system: SYSTEM,
-    user: `Classify these ${candidates.length} recurring charges:\n${user}`,
-    schema: BatchSchema,
-    toolName: "emit_classifications",
-    maxTokens: 2048,
-  });
+    const result = await llm.extract({
+      model: MODELS.haiku,
+      system: SYSTEM,
+      user: `Classify these ${slice.length} recurring charges:\n${user}`,
+      schema: BatchSchema,
+      toolName: "emit_classifications",
+      maxTokens: 4096,
+    });
 
-  return new Map(result.classifications.map((c) => [c.index, c]));
+    for (const c of result.classifications) out.set(c.index, c);
+  }
+
+  return out;
 }
