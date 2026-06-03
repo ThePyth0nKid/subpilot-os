@@ -29,3 +29,54 @@ export function assertNoToken(token: string, candidate: unknown): void {
     throw new Error("redaction guard: raw session token present in output");
   }
 }
+
+/** Raw + URL-encoded + base64 forms of an opaque secret, for leak scanning. */
+function secretForms(s: string): readonly string[] {
+  const forms = [s];
+  try {
+    forms.push(encodeURIComponent(s));
+  } catch {
+    /* never blocks a guard */
+  }
+  try {
+    forms.push(Buffer.from(s, "utf8").toString("base64"));
+  } catch {
+    /* never blocks a guard */
+  }
+  return forms.filter((f) => f.length >= 6);
+}
+
+/**
+ * Multi-secret form of {@link assertNoToken} for the switch chain — throws if
+ * ANY opaque secret (old cookie, new cookie, payment token, proxy password) or
+ * its URL/base64-encoded form appears in `candidate`. Short entries (<6 chars)
+ * are skipped to avoid false positives; the short numeric 2FA code is handled
+ * by {@link assertNoCode}, never here.
+ */
+export function assertNoSecrets(
+  secrets: readonly string[],
+  candidate: unknown,
+): void {
+  const haystack = safeStringify(candidate);
+  for (const secret of secrets) {
+    if (!secret || secret.length < 6) continue;
+    for (const form of secretForms(secret)) {
+      if (haystack.includes(form)) {
+        throw new Error("redaction guard: a raw secret is present in output");
+      }
+    }
+  }
+}
+
+/**
+ * Backstop for a short numeric 2FA code, which must NEVER be persisted/emitted.
+ * Exact-substring only (the code is structurally never on the record; this is a
+ * guard, not a redactor — a 2FA code must never go through `redactToken`, which
+ * would leak its prefix).
+ */
+export function assertNoCode(code: string, candidate: unknown): void {
+  if (!code) return;
+  if (safeStringify(candidate).includes(code)) {
+    throw new Error("redaction guard: a raw 2FA code is present in output");
+  }
+}

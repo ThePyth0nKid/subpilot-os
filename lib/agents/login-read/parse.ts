@@ -7,6 +7,7 @@ export interface AccountFields {
   readonly loggedIn: boolean;
   readonly plan: string; // "" when not found
   readonly billingCountry: string; // ISO-2 or ""
+  readonly cancelled: boolean; // Stage 2: positive cancellation marker present
   readonly confidence: number; // 0..1
 }
 
@@ -26,6 +27,7 @@ export const PATTERNS = {
   fixturePlan: 'data-sp-plan="([^"]+)"',
   fixtureCountry: 'data-sp-billing-country="([A-Za-z]{2})"',
   fixtureAuth: 'data-sp-auth="true"',
+  fixtureCancelled: 'data-sp-cancelled="true"',
   loginWall: 'name="password"|id="password"|>\\s*(?:Sign in|Log in|Anmelden)\\s*<',
   auth: {
     netflix: '"membershipStatus"\\s*:\\s*"CURRENT_MEMBER"|data-uia="account',
@@ -34,12 +36,22 @@ export const PATTERNS = {
     disney_plus: '"subscriptionState"|/account/subscription',
     chatgpt: '"plan_type"|/account/manage',
   },
+  // Stage 2: per-service POSITIVE cancellation markers (fresh authenticated read).
+  cancelled: {
+    netflix: 'your last day|membership will end|restart your membership',
+    spotify: 'your premium ends|reactivate premium|plan: spotify free',
+    youtube_premium: 'membership ends|restart your membership|no longer a member|benefits end',
+    disney_plus: 'subscription ends|restart your subscription|cancelled',
+    chatgpt: 'cancel at period end|your plan will be cancell?ed|renews: never',
+  },
 } as const satisfies {
   fixturePlan: string;
   fixtureCountry: string;
   fixtureAuth: string;
+  fixtureCancelled: string;
   loginWall: string;
   auth: Record<Target, string>;
+  cancelled: Record<Target, string>;
 };
 
 function firstMatch(html: string, pattern: string): string {
@@ -66,8 +78,13 @@ export function extractAccountFields(
   const billingCountry = normalizeCountry(countryRaw);
   // Positive auth evidence AND a parsed plan; a login wall hard-disqualifies.
   const loggedIn = (hasFixtureAuth || hasServiceAuth) && !hasLoginWall && plan.length > 0;
+  // Cancellation requires a positive marker from a still-authenticated read.
+  const cancelled =
+    loggedIn &&
+    (new RegExp(PATTERNS.fixtureCancelled, "i").test(html) ||
+      new RegExp(PATTERNS.cancelled[service], "i").test(html));
   const confidence = loggedIn ? (hasFixtureAuth ? 0.9 : 0.6) : 0.1;
-  return { loggedIn, plan, billingCountry, confidence };
+  return { loggedIn, plan, billingCountry, cancelled, confidence };
 }
 
 const NAME_TO_ISO: Readonly<Record<string, string>> = Object.fromEntries(

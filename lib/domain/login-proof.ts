@@ -23,6 +23,7 @@ export const VerifyStatusSchema = z.enum([
   "verified",
   "verified_live",
   "login_failed",
+  "subscription_cancelled", // Stage 2: positive proof the old plan is cancelled
   "failed",
 ]);
 export type VerifyStatus = z.infer<typeof VerifyStatusSchema>;

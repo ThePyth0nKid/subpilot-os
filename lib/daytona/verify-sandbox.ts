@@ -28,6 +28,7 @@ export interface VerifySandboxOutput {
   readonly loggedIn: boolean;
   readonly plan: string;
   readonly billingCountryRaw: string; // small extracted string; kernel normalizes
+  readonly cancelled: boolean; // Stage 2: positive cancellation marker present
   readonly confidence: number;
   readonly tokenRedacted: string;
   readonly steps: readonly ActionStep[];
@@ -64,8 +65,10 @@ const svc = PATTERNS.auth[service];
 const hasServiceAuth = svc ? new RegExp(svc, 'i').test(html) : false;
 const hasLoginWall = new RegExp(PATTERNS.loginWall, 'i').test(html);
 const loggedIn = (hasFixtureAuth || hasServiceAuth) && !hasLoginWall && plan.length > 0;
+const svcCancelled = PATTERNS.cancelled[service];
+const cancelled = loggedIn && (new RegExp(PATTERNS.fixtureCancelled, 'i').test(html) || (svcCancelled ? new RegExp(svcCancelled, 'i').test(html) : false));
 const confidence = loggedIn ? (hasFixtureAuth ? 0.9 : 0.6) : 0.1;
-console.log('${MARKER}' + JSON.stringify({ loggedIn, plan, billingCountryRaw, confidence }) + '${MARKER}');
+console.log('${MARKER}' + JSON.stringify({ loggedIn, plan, billingCountryRaw, cancelled, confidence }) + '${MARKER}');
 `;
 }
 
@@ -73,6 +76,7 @@ function parseMarker(stdout: string): {
   loggedIn: boolean;
   plan: string;
   billingCountryRaw: string;
+  cancelled: boolean;
   confidence: number;
 } {
   const start = stdout.indexOf(MARKER);
@@ -192,6 +196,7 @@ export async function runVerifyInSandbox(
         loggedIn: fields.loggedIn,
         plan: fields.plan,
         billingCountryRaw: fields.billingCountryRaw,
+        cancelled: fields.cancelled,
         confidence: fields.confidence,
         tokenRedacted,
         steps,

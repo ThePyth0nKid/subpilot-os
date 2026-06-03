@@ -111,7 +111,11 @@ export async function runLoginRead(
     : undefined;
   const { price, normalized } = estimateTargetPrice(service, country);
   const { savingsEUR, savingsPct } = computeSavings(currentMonthlyEUR, normalized);
-  const status = deriveStatus(out.loggedIn, proxyCfg.mode, inCountry);
+  // A positive cancellation marker (Stage 2 verify-cancel) wins over the
+  // generic read status — it proves the old plan is gone, not just logged in.
+  const status = out.cancelled
+    ? "subscription_cancelled"
+    : deriveStatus(out.loggedIn, proxyCfg.mode, inCountry);
   const at = new Date().toISOString();
 
   const result = LoginProofResultSchema.parse({
