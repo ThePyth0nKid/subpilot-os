@@ -11,7 +11,15 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "cli": "tsx cli/subpilot.ts",
-    "mcp": "tsx mcp/server.ts"
+    "mcp": "tsx mcp/server.ts",
+    "smoke:anonymize": "tsx scripts/smoke-anonymize.ts",
+    "smoke:cluster-v2": "tsx scripts/smoke-cluster-v2.ts",
+    "smoke:finom-parse": "tsx scripts/smoke-finom-parse.ts",
+    "smoke:pdf-parse": "tsx scripts/smoke-pdf-parse.ts",
+    "smoke:login-redaction": "tsx scripts/smoke-login-redaction.ts",
+    "smoke:login-proof": "tsx scripts/smoke-login-proof.ts",
+    "smoke:switch-reducer": "tsx scripts/smoke-switch-reducer.ts",
+    "smoke:switch-live": "tsx scripts/smoke-switch-live.ts"
   },
   "bin": {
     "subpilot": "./cli/subpilot.ts"
@@ -31,6 +39,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "stripe": "^22.2.0",
+    "unpdf": "^1.6.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

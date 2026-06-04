@@ -7,4 +7,5 @@ export * from "./geo-price";
 export * from "./risk";
 export * from "./recommendation";
 export * from "./action";
+export * from "./login-proof";
 export * from "./events";

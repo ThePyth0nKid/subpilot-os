@@ -17,6 +17,14 @@ export class MockPayment implements PaymentProvider {
   }
 
   async purchase(order: GiftCardOrder, dryRun: boolean): Promise<PurchaseReceipt> {
+    // The mock is structurally incapable of moving money: a live purchase MUST
+    // go through a real provider. Refusing here means no caller (switch agent,
+    // CLI, MCP) can ever charge via the mock, even if a gate is misconfigured.
+    if (!dryRun) {
+      throw new Error(
+        "MockPayment cannot execute a live purchase — configure a real payment provider (Bitrefill).",
+      );
+    }
     const now = () => new Date().toISOString();
     const sku = `BITREFILL-${order.service.toUpperCase()}-${order.country.toUpperCase()}`;
     const ref = `mock-rcpt-${Math.abs(hash(sku + now())).toString(36)}`;

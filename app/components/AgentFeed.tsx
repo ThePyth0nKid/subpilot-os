@@ -34,7 +34,7 @@ export function AgentFeed({ events, running }: AgentFeedProps) {
       <div className="panel-inset p-3 flex-1 min-h-0 overflow-y-auto scroll-thin mono" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
         {events.length === 0 && (
           <p style={{ color: "var(--ink-faint)" }}>
-            // waiting for kernel boot…
+            {"// waiting for kernel boot…"}
           </p>
         )}
         {events.map((e, i) => {

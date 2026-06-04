@@ -1,6 +1,6 @@
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 /**
  * Best-effort official pricing/help URL per service × country. Fetched from

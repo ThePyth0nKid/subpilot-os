@@ -15,6 +15,13 @@ dist/
 *.key
 *.pem
 
+# private REAL bank statements — NEVER commit (PII; this repo is public).
+# Drop your real Finom export under private/ for local calibration only.
+private/
+*.private.csv
+*-real.csv
+finom-export*.csv
+
 # logs
 *.log
 npm-debug.log*

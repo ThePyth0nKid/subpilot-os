@@ -21,7 +21,8 @@ export interface RunHandle {
   readonly snapshot: RunSnapshot | null;
   readonly error: string | null;
   readonly running: boolean;
-  readonly start: (csv: string) => Promise<void>;
+  /** Start a run from CSV text (sent as text/plain) or a PDF File (multipart). */
+  readonly start: (statement: string | File) => Promise<void>;
 }
 
 /** Owns the lifecycle of one optimization run + its SSE event stream. */
@@ -32,20 +33,29 @@ export function useRun(): RunHandle {
   const [error, setError] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
-  const start = useCallback(async (csv: string) => {
+  const start = useCallback(async (statement: string | File) => {
     esRef.current?.close();
     setEvents([]);
     setSnapshot(null);
     setError(null);
     setStatus("ingesting");
 
+    // CSV text goes as text/plain; a File (PDF) goes as multipart so the server
+    // can extract + anonymize the binary before any processing.
+    let body: BodyInit;
+    let headers: HeadersInit | undefined;
+    if (typeof statement === "string") {
+      body = statement;
+      headers = { "Content-Type": "text/plain" };
+    } else {
+      const form = new FormData();
+      form.append("file", statement);
+      body = form; // the browser sets the multipart boundary itself
+    }
+
     let runId: string;
     try {
-      const res = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: csv,
-      });
+      const res = await fetch("/api/run", { method: "POST", headers, body });
       const data = (await res.json()) as { runId?: string; error?: string };
       if (!res.ok || !data.runId) {
         throw new Error(data.error ?? "Failed to start run");

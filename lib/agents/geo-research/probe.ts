@@ -1,9 +1,10 @@
 import type { ProxyConfig } from "@/lib/providers";
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 import { runShell, type Sandbox } from "@/lib/daytona/runner";
+import { proxyShell } from "@/lib/daytona/proxy-shell";
 import { pricingUrl } from "./sources";
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 export interface ProbeEvidence {
   readonly url: string;
@@ -19,32 +20,6 @@ export interface ProbeResult {
   readonly ms?: number;
   readonly evidence?: ProbeEvidence;
   readonly error?: string;
-}
-
-interface ProxyShell {
-  readonly flags: string;
-  readonly env: Record<string, string>;
-}
-
-/**
- * Bright Data proxy → curl flags that reference ENV VARS (never inline creds).
- * Credentials are passed structurally to executeCommand and expanded inside
- * double quotes, so a password containing shell metacharacters can't inject
- * (the shell does not re-scan an expanded value). Mock/direct → no proxy.
- */
-function proxyShell(proxy: ProxyConfig): ProxyShell {
-  if (proxy.mode !== "brightdata" || !proxy.host || proxy.host === "direct") {
-    return { flags: "", env: {} };
-  }
-  return {
-    flags: `--proxy "http://$BD_HOST:$BD_PORT" --proxy-user "$BD_USER:$BD_PASS"`,
-    env: {
-      BD_HOST: proxy.host,
-      BD_PORT: String(proxy.port),
-      BD_USER: proxy.username,
-      BD_PASS: proxy.password,
-    },
-  };
 }
 
 /** Pull the first {...} JSON object out of possibly-noisy curl stdout. */
