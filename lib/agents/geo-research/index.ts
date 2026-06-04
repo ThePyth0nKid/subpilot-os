@@ -4,7 +4,7 @@ import {
   type GeoPriceResult,
 } from "@/lib/domain/geo-price";
 import { formatMoney } from "@/lib/domain/money";
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 import { emitter, type OnEvent } from "@/lib/agents/emit";
 import { fanOut, withSandbox } from "@/lib/daytona/runner";
 import type { LlmClient, ProxyProvider, SearchProvider } from "@/lib/providers";
@@ -21,7 +21,7 @@ export interface GeoDeps {
   readonly concurrency?: number;
 }
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 /** Boost confidence on confirmed in-country egress; penalize on probe failure. */
 function scoreConfidence(probe: ProbeResult | null, base: number): number {

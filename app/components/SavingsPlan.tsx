@@ -118,8 +118,18 @@ export function SavingsPlan({
   const recs = [...optimization.recommendations].sort(
     (a, b) => b.monthlySavingsEUR - a.monthlySavingsEUR,
   );
-  const notOptimizable = subscriptions.filter((s) => !s.optimizable);
+  const detectedSubs = subscriptions.filter(
+    (s) => !s.optimizable && s.kind === "subscription",
+  );
+  const otherRecurring = subscriptions.filter((s) => s.kind !== "subscription");
   const hasSwitches = report.switchCount > 0;
+
+  const subChip = (s: Subscription) => (
+    <span key={s.id} className="chip" style={{ textTransform: "none" }}>
+      {s.merchantNormalized} · {s.variableAmount ? "~" : ""}
+      {eur(s.currentMonthly.monthlyEUR)}/mo
+    </span>
+  );
 
   return (
     <div className="panel p-5 reveal">
@@ -163,17 +173,22 @@ export function SavingsPlan({
         ))}
       </div>
 
-      {notOptimizable.length > 0 && (
+      {detectedSubs.length > 0 && (
         <div className="mt-5">
           <div className="eyebrow mb-2">
-            Detected · not optimizable ({notOptimizable.length})
+            Subscriptions · not optimizable ({detectedSubs.length})
           </div>
-          <div className="flex flex-wrap gap-2">
-            {notOptimizable.map((s) => (
-              <span key={s.id} className="chip" style={{ textTransform: "none" }}>
-                {s.merchantNormalized} · {eur(s.currentMonthly.monthlyEUR)}/mo
-              </span>
-            ))}
+          <div className="flex flex-wrap gap-2">{detectedSubs.map(subChip)}</div>
+        </div>
+      )}
+
+      {otherRecurring.length > 0 && (
+        <div className="mt-5">
+          <div className="eyebrow mb-2">
+            Other recurring · not subscriptions ({otherRecurring.length})
+          </div>
+          <div className="flex flex-wrap gap-2" style={{ opacity: 0.75 }}>
+            {otherRecurring.map(subChip)}
           </div>
         </div>
       )}

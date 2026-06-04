@@ -1,7 +1,7 @@
 import { COUNTRIES } from "@/lib/agents/geo-research/countries";
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 
-export type Target = Exclude<ServiceSlug, "unknown">;
+export type Target = OptimizableService;
 
 export interface AccountFields {
   readonly loggedIn: boolean;

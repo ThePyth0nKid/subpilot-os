@@ -13,6 +13,7 @@
     "cli": "tsx cli/subpilot.ts",
     "mcp": "tsx mcp/server.ts",
     "smoke:anonymize": "tsx scripts/smoke-anonymize.ts",
+    "smoke:cluster-v2": "tsx scripts/smoke-cluster-v2.ts",
     "smoke:finom-parse": "tsx scripts/smoke-finom-parse.ts",
     "smoke:pdf-parse": "tsx scripts/smoke-pdf-parse.ts",
     "smoke:login-redaction": "tsx scripts/smoke-login-redaction.ts",

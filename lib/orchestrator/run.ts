@@ -1,6 +1,7 @@
 import type { AgentEvent, AgentName, EventPhase } from "@/lib/domain/events";
 import {
   OPTIMIZABLE_SERVICES,
+  type OptimizableService,
   type ServiceSlug,
   type Subscription,
 } from "@/lib/domain/subscription";
@@ -32,7 +33,7 @@ function safeErrorMessage(err: unknown): string {
   return hasPII(raw) ? "Run failed (could not process input)" : raw;
 }
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 /**
  * ORCHESTRATOR — the OS kernel. Drives the 7-agent state machine for one run,

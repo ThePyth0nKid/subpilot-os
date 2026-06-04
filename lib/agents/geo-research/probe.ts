@@ -1,10 +1,10 @@
 import type { ProxyConfig } from "@/lib/providers";
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 import { runShell, type Sandbox } from "@/lib/daytona/runner";
 import { proxyShell } from "@/lib/daytona/proxy-shell";
 import { pricingUrl } from "./sources";
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 export interface ProbeEvidence {
   readonly url: string;
