@@ -32,8 +32,12 @@ export function defaultProfiles(
 ): ReadonlyMap<string, PreferenceProfile> {
   const emit = emitter("interview", runId, onEvent);
   emit("started", "Applying preference defaults (demo auto-interview)…");
+  // Preferences only make sense for genuine subscriptions — P2P transfers and
+  // retail spend (kind !== "subscription") have nothing to interview about.
   const map = new Map<string, PreferenceProfile>();
-  for (const s of subs) map.set(s.id, defaultProfile(s));
+  for (const s of subs.filter((s) => s.kind === "subscription")) {
+    map.set(s.id, defaultProfile(s));
+  }
   emit(
     "completed",
     `Captured preferences for ${map.size} subscriptions — English-OK, medium risk tolerance`,
