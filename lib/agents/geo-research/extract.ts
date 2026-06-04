@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { EUR_PER_UNIT } from "@/lib/domain/fx";
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 import { MODELS, type LlmClient, type SearchProvider } from "@/lib/providers";
 import { countryInfo, FALLBACK_EUR } from "./countries";
 
@@ -55,7 +55,7 @@ function htmlToText(html: string, max = 3000): string {
  * optimizer honest without trusting a single noisy number.
  */
 function isPlausible(
-  service: Exclude<ServiceSlug, "unknown">,
+  service: OptimizableService,
   country: string,
   monthlyAmountMinor: number,
   currency: string,
@@ -67,7 +67,7 @@ function isPlausible(
 
 /** Kernel-side extraction: in-country evidence + Tavily + Haiku, with a static fallback. */
 export async function extractPrice(
-  service: Exclude<ServiceSlug, "unknown">,
+  service: OptimizableService,
   country: string,
   deps: { readonly search: SearchProvider; readonly llm: LlmClient },
   evidence?: PriceEvidence,
@@ -118,7 +118,7 @@ export async function extractPrice(
 }
 
 function fallbackPrice(
-  service: Exclude<ServiceSlug, "unknown">,
+  service: OptimizableService,
   country: string,
 ): ExtractedPrice {
   const info = countryInfo(country);

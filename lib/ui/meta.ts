@@ -13,6 +13,14 @@ export const SERVICE_META: Readonly<Record<ServiceSlug, ServiceMeta>> = {
   youtube_premium: { label: "YouTube Premium", accent: "#ff4e45", glyph: "▶" },
   disney_plus: { label: "Disney+", accent: "#3a7bd5", glyph: "✦" },
   chatgpt: { label: "ChatGPT Plus", accent: "#10a37f", glyph: "✸" },
+  claude: { label: "Claude", accent: "#d97757", glyph: "✳" },
+  cursor: { label: "Cursor", accent: "#8b8b9e", glyph: "▍" },
+  midjourney: { label: "Midjourney", accent: "#7c87ff", glyph: "⛵" },
+  suno: { label: "Suno", accent: "#ff7ab8", glyph: "♪" },
+  elevenlabs: { label: "ElevenLabs", accent: "#9aa4ff", glyph: "𝄞" },
+  mistral: { label: "Mistral", accent: "#ff8205", glyph: "Ⓜ" },
+  railway: { label: "Railway", accent: "#a78bfa", glyph: "⬡" },
+  apple: { label: "Apple", accent: "#c7c7cc", glyph: "" },
   unknown: { label: "Recurring", accent: "#7d8290", glyph: "•" },
 };
 

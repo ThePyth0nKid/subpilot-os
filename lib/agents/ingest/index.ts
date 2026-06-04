@@ -1,3 +1,4 @@
+import { assertNoPII } from "@/lib/anonymize";
 import { toMonthlyEUR } from "@/lib/domain/fx";
 import {
   OPTIMIZABLE_SERVICES,
@@ -16,6 +17,8 @@ export interface IngestArgs {
   readonly llm: LlmClient;
   readonly runId?: string;
   readonly onEvent?: OnEvent;
+  /** Optional explicit account-holder names to redact (server-side, from env). */
+  readonly holderNames?: readonly string[];
 }
 
 function toSubscription(
@@ -23,14 +26,19 @@ function toSubscription(
   cls: Classification | undefined,
 ): Subscription {
   const service: ServiceSlug = cls?.service ?? "unknown";
+  const kind = cls?.kind ?? "subscription";
   const interval = cls?.interval ?? "monthly";
   const currentPrice = {
     amountMinor: c.monthlyAmountMinor,
     currency: c.currency,
   };
-  const optimizable = (OPTIMIZABLE_SERVICES as readonly ServiceSlug[]).includes(
-    service,
-  );
+  // Only genuine fixed-price subscriptions are geo-optimization targets — a
+  // P2P transfer that costs as much as Netflix, or metered API spend that the
+  // classifier maps onto a service brand, must never enter the switch flow.
+  const optimizable =
+    kind === "subscription" &&
+    !c.variableAmount &&
+    (OPTIMIZABLE_SERVICES as readonly ServiceSlug[]).includes(service);
   return SubscriptionSchema.parse({
     id: c.id,
     service,
@@ -44,6 +52,8 @@ function toSubscription(
     confidence: cls?.confidence ?? 0.3,
     sourceTransactionIds: c.sourceTransactionIds,
     optimizable,
+    kind,
+    variableAmount: c.variableAmount,
   });
 }
 
@@ -54,12 +64,14 @@ function toSubscription(
  */
 export async function ingest(
   rawCsv: string,
-  { llm, runId = "local", onEvent }: IngestArgs,
+  { llm, runId = "local", onEvent, holderNames }: IngestArgs,
 ): Promise<readonly Subscription[]> {
   const emit = emitter("ingest", runId, onEvent);
   emit("started", "Parsing bank statement…");
 
-  const txs = parseCsv(rawCsv);
+  const txs = parseCsv(rawCsv, { holderNames });
+  // Fail-closed: no PII may survive projection+redaction into the pipeline.
+  assertNoPII(txs);
   const candidates = clusterRecurring(txs);
   emit(
     "progress",
@@ -69,16 +81,23 @@ export async function ingest(
   const classMap = await classifyCandidates(candidates, llm);
   const subscriptions = candidates.map((c, i) => toSubscription(c, classMap.get(i)));
 
+  // Backstop before anything reaches the SSE payload / DB snapshot.
+  assertNoPII(subscriptions);
+
   const optimizable = subscriptions.filter((s) => s.optimizable);
+  const subs = subscriptions.filter((s) => s.kind === "subscription");
   emit(
     "completed",
-    `Detected ${subscriptions.length} subscriptions — ${optimizable.length} optimizable, ${subscriptions.length - optimizable.length} other recurring`,
+    `Detected ${subs.length} subscriptions (${optimizable.length} optimizable) + ${subscriptions.length - subs.length} other recurring charges`,
     { payload: subscriptions },
   );
 
-  // Optimizable first, then by monthly cost.
+  // Optimizable first, then real subscriptions, then other recurring spend —
+  // each tier by monthly cost.
+  const tier = (s: Subscription): number =>
+    s.optimizable ? 0 : s.kind === "subscription" ? 1 : 2;
   return [...subscriptions].sort((a, b) => {
-    if (a.optimizable !== b.optimizable) return a.optimizable ? -1 : 1;
+    if (tier(a) !== tier(b)) return tier(a) - tier(b);
     return b.currentMonthly.monthlyEUR - a.currentMonthly.monthlyEUR;
   });
 }

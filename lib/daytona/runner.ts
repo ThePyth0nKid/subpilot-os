@@ -16,17 +16,33 @@ function daytona(): Daytona {
 }
 
 /**
+ * Per-sandbox outbound network policy (Daytona `networkBlockAll` /
+ * `networkAllowList`). `allowList` is a comma-separated list of CIDRs the
+ * sandbox may reach; everything else is dropped. Used to bound egress when a
+ * secret (e.g. a session cookie) is inside the sandbox so a compromised
+ * dependency can't exfiltrate it to an arbitrary host (threat-model C3).
+ */
+export interface SandboxNetwork {
+  readonly allowList?: string; // comma-separated CIDRs (Daytona networkAllowList)
+  readonly blockAll?: boolean; // block all outbound (Daytona networkBlockAll)
+}
+
+/**
  * Create an isolated TypeScript/JS sandbox. Optional `envVars` are injected
  * into the sandbox process only — used to hand a scoped secret (e.g. a geo
  * proxy credential or a single-use payment token) to the code running inside,
- * never persisted by the kernel. The sandbox is destroyed on teardown.
+ * never persisted by the kernel. Optional `network` bounds outbound egress.
+ * The sandbox is destroyed on teardown.
  */
 export async function createSandbox(
   envVars?: Readonly<Record<string, string>>,
+  network?: SandboxNetwork,
 ): Promise<Sandbox> {
   return daytona().create({
     language: "typescript",
     ...(envVars ? { envVars: { ...envVars } } : {}),
+    ...(network?.allowList ? { networkAllowList: network.allowList } : {}),
+    ...(network?.blockAll ? { networkBlockAll: true } : {}),
   });
 }
 
@@ -67,12 +83,16 @@ export async function teardown(sandbox: Sandbox): Promise<void> {
   }
 }
 
-/** Create → use → always tear down. Optional `envVars` seed the sandbox env. */
+/**
+ * Create → use → always tear down. Optional `envVars` seed the sandbox env;
+ * optional `network` bounds outbound egress (e.g. when a cookie is inside).
+ */
 export async function withSandbox<R>(
   fn: (sandbox: Sandbox) => Promise<R>,
   envVars?: Readonly<Record<string, string>>,
+  network?: SandboxNetwork,
 ): Promise<R> {
-  const sandbox = await createSandbox(envVars);
+  const sandbox = await createSandbox(envVars, network);
   try {
     return await fn(sandbox);
   } finally {

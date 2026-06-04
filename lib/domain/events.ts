@@ -9,6 +9,8 @@ export const AGENT_NAMES = [
   "optimizer",
   "action",
   "report",
+  "login-read",
+  "switch",
 ] as const;
 
 export const AgentNameSchema = z.enum(AGENT_NAMES);
