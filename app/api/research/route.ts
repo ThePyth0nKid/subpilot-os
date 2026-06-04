@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { researchMatrix } from "@/lib/agents/geo-research";
-import { ServiceSlugSchema } from "@/lib/domain/subscription";
+import { OPTIMIZABLE_SERVICES } from "@/lib/domain/subscription";
 import { getProviders } from "@/lib/providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const BodySchema = z.object({
-  service: ServiceSlugSchema.exclude(["unknown"]),
+  // Only geo-optimization targets — AI-tool slugs have no country matrix.
+  service: z.enum(OPTIMIZABLE_SERVICES),
   countries: z.array(z.string().length(2)).min(1),
 });
 

@@ -1,16 +1,42 @@
 import { z } from "zod";
 import { MoneySchema, NormalizedPriceSchema } from "./money";
 
-/** Services we actively optimize. `unknown` = recurring but not a target. */
+/**
+ * Known services. The streaming slugs (+chatgpt) are geo-optimization targets;
+ * the AI/dev-tool slugs exist so real statements (which are full of them) get
+ * labeled correctly instead of being mismapped onto a streaming slug.
+ * `unknown` = recurring but not a recognized brand.
+ */
 export const ServiceSlugSchema = z.enum([
   "netflix",
   "spotify",
   "youtube_premium",
   "disney_plus",
   "chatgpt",
+  "claude",
+  "cursor",
+  "midjourney",
+  "suno",
+  "elevenlabs",
+  "mistral",
+  "railway",
+  "apple",
   "unknown",
 ]);
 export type ServiceSlug = z.infer<typeof ServiceSlugSchema>;
+
+/**
+ * What a recurring charge actually is. Only `subscription` belongs in the
+ * savings plan; the rest ("Miriam Mehlis Auszahlung", fuel stations, Amazon
+ * shopping that happens to repeat) renders in a separate UI section.
+ */
+export const SubscriptionKindSchema = z.enum([
+  "subscription",
+  "p2p",
+  "retail",
+  "other",
+]);
+export type SubscriptionKind = z.infer<typeof SubscriptionKindSchema>;
 
 /** Services eligible for geo-optimization (excludes `unknown`). */
 export const OPTIMIZABLE_SERVICES = [
@@ -20,6 +46,8 @@ export const OPTIMIZABLE_SERVICES = [
   "disney_plus",
   "chatgpt",
 ] as const satisfies readonly ServiceSlug[];
+/** A geo-optimization target — the only slugs geo-research/login-read know. */
+export type OptimizableService = (typeof OPTIMIZABLE_SERVICES)[number];
 
 export const BillingIntervalSchema = z.enum([
   "monthly",
@@ -44,6 +72,10 @@ export const SubscriptionSchema = z
     sourceTransactionIds: z.array(z.string()).readonly(),
     /** True when the service is a geo-optimization target. */
     optimizable: z.boolean(),
+    /** Defaults keep pre-v2 DB snapshots parseable. */
+    kind: SubscriptionKindSchema.default("subscription"),
+    /** Usage-based billing (API spend, metered IDE usage) — amount is a median. */
+    variableAmount: z.boolean().default(false),
   })
   .readonly();
 export type Subscription = z.infer<typeof SubscriptionSchema>;

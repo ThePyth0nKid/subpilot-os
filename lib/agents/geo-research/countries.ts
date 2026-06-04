@@ -1,4 +1,4 @@
-import type { ServiceSlug } from "@/lib/domain/subscription";
+import type { OptimizableService } from "@/lib/domain/subscription";
 
 export interface CountryInfo {
   readonly name: string;
@@ -30,7 +30,7 @@ export function countryInfo(code: string): CountryInfo {
  * cheaper abroad, which keeps the optimizer honest.
  */
 export const FALLBACK_EUR: Readonly<
-  Record<Exclude<ServiceSlug, "unknown">, Readonly<Record<string, number>>>
+  Record<OptimizableService, Readonly<Record<string, number>>>
 > = Object.freeze({
   netflix: { IN: 2.6, TR: 4.1, US: 16.0, DE: 19.99, AR: 3.2 },
   spotify: { IN: 1.5, TR: 2.3, US: 11.0, DE: 10.99, AR: 1.9 },

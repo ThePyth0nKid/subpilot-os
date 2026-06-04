@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import type { AgentEvent } from "@/lib/domain/events";
 import {
   OPTIMIZABLE_SERVICES,
+  type OptimizableService,
   type ServiceSlug,
 } from "@/lib/domain/subscription";
 import { ingest } from "@/lib/agents/ingest";
@@ -15,7 +16,7 @@ import { buildReport } from "@/lib/agents/report";
 import { runActions, type ActOrder } from "@/lib/agents/action";
 import { getProviders } from "@/lib/providers";
 
-type Target = Exclude<ServiceSlug, "unknown">;
+type Target = OptimizableService;
 
 const C = {
   reset: "\x1b[0m",

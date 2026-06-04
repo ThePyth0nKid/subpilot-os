@@ -2,13 +2,18 @@ import { z } from "zod";
 import { assertNoPII } from "@/lib/anonymize";
 import type { LlmClient } from "@/lib/providers";
 import { MODELS } from "@/lib/providers";
-import { BillingIntervalSchema, ServiceSlugSchema } from "@/lib/domain/subscription";
+import {
+  BillingIntervalSchema,
+  ServiceSlugSchema,
+  SubscriptionKindSchema,
+} from "@/lib/domain/subscription";
 import type { RecurringCandidate } from "./cluster";
 
 const ClassificationSchema = z.object({
   index: z.number().int(),
   merchantNormalized: z.string(),
   service: ServiceSlugSchema,
+  kind: SubscriptionKindSchema,
   interval: BillingIntervalSchema,
   currentPlan: z.string().optional(),
   detectedCountry: z.string(), // ISO-3166 alpha-2
@@ -23,14 +28,25 @@ const BatchSchema = z.object({
 const SYSTEM = `You are the ingest/normalization worker of SubPilot OS.
 You receive recurring bank charges already detected as candidates. For EACH candidate:
 - merchantNormalized: clean brand name (e.g. "NETFLIX.COM AMSTERDAM" -> "Netflix").
-- service: map ONLY streaming/AI subscriptions to a slug:
-  netflix, spotify, youtube_premium, disney_plus, chatgpt.
-  Everything else (gym, mobile, insurance, utilities, rent, cloud storage like iCloud,
-  Amazon Prime, etc.) -> "unknown".
+- kind: what this recurring charge actually IS:
+  - "subscription": a digital service, SaaS, membership, or usage-billed platform
+    (streaming, AI tools, cloud/hosting, gym, software).
+  - "p2p": a transfer to a PERSON — a human first+last name as payee, references
+    like "Privat", "Auszahlung", "Miete", informal free-text purposes.
+  - "retail": repeated shopping/errands — marketplaces (Amazon), supermarkets,
+    fuel stations, butchers, restaurants.
+  - "other": recurring but none of the above (tax office, insurance, vet, fees).
+- service: map known services to their slug:
+  netflix, spotify, youtube_premium, disney_plus, chatgpt,
+  claude, cursor, midjourney, suno, elevenlabs, mistral, railway, apple.
+  IMPORTANT: "CLAUDE.AI" / "ANTHROPIC" is claude — NEVER chatgpt (chatgpt is OpenAI only).
+  APPLE.COM/BILL is apple. Everything unrecognized -> "unknown".
 - interval: usually "monthly" for these charges.
 - currentPlan: best guess from the monthly price (e.g. Netflix 19.99 EUR -> "Premium").
 - detectedCountry: the user's billing market. All charges are EUR in Germany -> "DE".
 - confidence: 0..1 how sure you are of the service mapping.
+Candidates marked variableAmount=true are usage-based spend (API metering, fluctuating
+bills) — they are still kind "subscription" when the merchant is a service provider.
 Return one classification per candidate, preserving the given index.`;
 
 /**
@@ -55,6 +71,7 @@ export async function classifyCandidates(
         merchantRaw: c.merchantRaw,
         monthlyAmount: `${(c.monthlyAmountMinor / 100).toFixed(2)} ${c.currency}`,
         occurrences: c.occurrences,
+        variableAmount: c.variableAmount,
       })),
       null,
       2,
