@@ -15,6 +15,9 @@ dist/
 *.key
 *.pem
 
+# real session cookies for Stage-0 live runs — NEVER commit (= a live account).
+.secrets/
+
 # private REAL bank statements — NEVER commit (PII; this repo is public).
 # Drop your real Finom export under private/ for local calibration only.
 private/

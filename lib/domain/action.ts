@@ -12,7 +12,9 @@ export const AuditEntrySchema = z
   .object({
     at: z.string(),
     step: z.string(),
-    detail: z.string(),
+    // Bounded so a reflected-content leak can't pour megabytes through a detail
+    // string into a log/SSE payload (sec-review H-3).
+    detail: z.string().max(500),
   })
   .readonly();
 export type AuditEntry = z.infer<typeof AuditEntrySchema>;

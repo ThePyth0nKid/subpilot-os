@@ -18,3 +18,21 @@ const ACCOUNT_URLS: Readonly<Record<Target, string>> = {
 export function accountPageUrl(service: Target): string {
   return ACCOUNT_URLS[service];
 }
+
+/** Name + domain of the session cookie to inject for a real browser read. */
+export interface SessionCookieSpec {
+  readonly name: string;
+  readonly domain: string;
+}
+
+const COOKIE_SPECS: Readonly<Record<Target, SessionCookieSpec>> = {
+  netflix: { name: "NetflixId", domain: ".netflix.com" },
+  spotify: { name: "sp_dc", domain: ".spotify.com" },
+  youtube_premium: { name: "SAPISID", domain: ".youtube.com" },
+  disney_plus: { name: "disney_token", domain: ".disneyplus.com" },
+  chatgpt: { name: "__Secure-next-auth.session-token", domain: "chatgpt.com" },
+};
+
+export function sessionCookieSpec(service: Target): SessionCookieSpec {
+  return COOKIE_SPECS[service];
+}

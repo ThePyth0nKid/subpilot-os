@@ -18,6 +18,8 @@
     "smoke:pdf-parse": "tsx scripts/smoke-pdf-parse.ts",
     "smoke:login-redaction": "tsx scripts/smoke-login-redaction.ts",
     "smoke:login-proof": "tsx scripts/smoke-login-proof.ts",
+    "smoke:browser-read": "tsx scripts/smoke-browser-read.ts",
+    "stage0:chatgpt": "tsx scripts/stage0-chatgpt-read.ts",
     "smoke:switch-reducer": "tsx scripts/smoke-switch-reducer.ts",
     "smoke:switch-live": "tsx scripts/smoke-switch-live.ts"
   },

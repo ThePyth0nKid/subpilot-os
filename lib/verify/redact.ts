@@ -6,7 +6,9 @@ export const REDACTION_NOTE = "never leaves the sandbox";
  */
 export function redactToken(token: string): string {
   if (!token) return "none (no token)";
-  return `${token.slice(0, 6)}…(${token.length} chars, ${REDACTION_NOTE})`;
+  // Only a 3-char prefix survives — enough to eyeball "same token across runs",
+  // too short to be a useful cross-run fingerprint (sec-review M-2).
+  return `${token.slice(0, 3)}…(${token.length} chars, ${REDACTION_NOTE})`;
 }
 
 function safeStringify(value: unknown): string {
@@ -25,8 +27,14 @@ function safeStringify(value: unknown): string {
  */
 export function assertNoToken(token: string, candidate: unknown): void {
   if (!token) return;
-  if (safeStringify(candidate).includes(token)) {
+  const hay = safeStringify(candidate);
+  if (hay.includes(token)) {
     throw new Error("redaction guard: raw session token present in output");
+  }
+  // A truncated leak (e.g. an error message sliced to 160 chars) would slip past
+  // the full-string check — also reject a long identifying prefix (sec-review H-1).
+  if (token.length > 32 && hay.includes(token.slice(0, 32))) {
+    throw new Error("redaction guard: session token prefix present in output");
   }
 }
 
