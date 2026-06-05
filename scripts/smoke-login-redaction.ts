@@ -57,7 +57,8 @@ assert(deriveStatus(true, "brightdata", false) === "verified", "status: brightda
 const TOKEN = "sk-secret-cookie-1234567890";
 const red = redactToken(TOKEN);
 assert(!red.includes("1234567890"), "redact: token tail absent");
-assert(red.startsWith(TOKEN.slice(0, 6)), "redact: only a 6-char prefix survives");
+assert(red.startsWith(TOKEN.slice(0, 3)), "redact: only a 3-char prefix survives");
+assert(!red.includes(TOKEN.slice(0, 6)), "redact: prefix shortened to 3 chars");
 
 // --- C2: a parsed receipt never embeds the raw token ---
 const receipt = LoginProofResultSchema.parse({
