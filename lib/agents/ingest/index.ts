@@ -6,8 +6,10 @@ import {
   type ServiceSlug,
   type Subscription,
 } from "@/lib/domain/subscription";
+import type { Finding } from "@/lib/domain/insight";
 import type { LlmClient } from "@/lib/providers";
 import { emitter, type OnEvent } from "@/lib/agents/emit";
+import { analyzeSubscriptions } from "@/lib/agents/insights";
 import type { Classification } from "./classify";
 import { classifyCandidates } from "./classify";
 import { clusterRecurring, type RecurringCandidate } from "./cluster";
@@ -19,6 +21,12 @@ export interface IngestArgs {
   readonly onEvent?: OnEvent;
   /** Optional explicit account-holder names to redact (server-side, from env). */
   readonly holderNames?: readonly string[];
+}
+
+/** Ingest output: the detected subscriptions plus risk-free savings findings. */
+export interface IngestResult {
+  readonly subscriptions: readonly Subscription[];
+  readonly findings: readonly Finding[];
 }
 
 function toSubscription(
@@ -54,6 +62,7 @@ function toSubscription(
     optimizable,
     kind,
     variableAmount: c.variableAmount,
+    category: cls?.category ?? "other",
   });
 }
 
@@ -65,8 +74,9 @@ function toSubscription(
 export async function ingest(
   rawCsv: string,
   { llm, runId = "local", onEvent, holderNames }: IngestArgs,
-): Promise<readonly Subscription[]> {
+): Promise<IngestResult> {
   const emit = emitter("ingest", runId, onEvent);
+  const emitInsights = emitter("insights", runId, onEvent);
   emit("started", "Parsing bank statement…");
 
   const txs = parseCsv(rawCsv, { holderNames });
@@ -79,25 +89,39 @@ export async function ingest(
   );
 
   const classMap = await classifyCandidates(candidates, llm);
-  const subscriptions = candidates.map((c, i) => toSubscription(c, classMap.get(i)));
+  const unsorted = candidates.map((c, i) => toSubscription(c, classMap.get(i)));
 
   // Backstop before anything reaches the SSE payload / DB snapshot.
-  assertNoPII(subscriptions);
+  assertNoPII(unsorted);
 
-  const optimizable = subscriptions.filter((s) => s.optimizable);
-  const subs = subscriptions.filter((s) => s.kind === "subscription");
+  const optimizable = unsorted.filter((s) => s.optimizable);
+  const subs = unsorted.filter((s) => s.kind === "subscription");
   emit(
     "completed",
-    `Detected ${subs.length} subscriptions (${optimizable.length} optimizable) + ${subscriptions.length - subs.length} other recurring charges`,
-    { payload: subscriptions },
+    `Detected ${subs.length} subscriptions (${optimizable.length} optimizable) + ${unsorted.length - subs.length} other recurring charges`,
+    { payload: unsorted },
   );
 
   // Optimizable first, then real subscriptions, then other recurring spend —
   // each tier by monthly cost.
   const tier = (s: Subscription): number =>
     s.optimizable ? 0 : s.kind === "subscription" ? 1 : 2;
-  return [...subscriptions].sort((a, b) => {
+  const subscriptions = [...unsorted].sort((a, b) => {
     if (tier(a) !== tier(b)) return tier(a) - tier(b);
     return b.currentMonthly.monthlyEUR - a.currentMonthly.monthlyEUR;
   });
+
+  // Risk-free savings analysis from the statement alone (no account/credentials).
+  emitInsights("started", "Scanning for savings opportunities…");
+  const findings = analyzeSubscriptions(subscriptions, txs);
+  const totalEUR = findings.reduce((s, f) => s + f.estimatedMonthlySavingsEUR, 0);
+  emitInsights(
+    "completed",
+    findings.length > 0
+      ? `Found ${findings.length} savings ${findings.length === 1 ? "opportunity" : "opportunities"} — up to €${totalEUR.toFixed(2)}/mo`
+      : "No obvious overlaps or duplicates found",
+    { payload: findings },
+  );
+
+  return { subscriptions, findings };
 }

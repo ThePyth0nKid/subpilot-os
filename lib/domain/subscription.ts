@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MoneySchema, NormalizedPriceSchema } from "./money";
+import { SpendCategorySchema } from "./insight";
 
 /**
  * Known services. The streaming slugs (+chatgpt) are geo-optimization targets;
@@ -76,6 +77,8 @@ export const SubscriptionSchema = z
     kind: SubscriptionKindSchema.default("subscription"),
     /** Usage-based billing (API spend, metered IDE usage) — amount is a median. */
     variableAmount: z.boolean().default(false),
+    /** Spend-category for redundancy insights (default keeps old snapshots valid). */
+    category: SpendCategorySchema.default("other"),
   })
   .readonly();
 export type Subscription = z.infer<typeof SubscriptionSchema>;

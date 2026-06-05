@@ -60,7 +60,7 @@ export async function runPipeline(
 
     setStatus(runId, "ingesting");
     const { llm, search, proxy } = getProviders();
-    const subscriptions = await ingest(csv, {
+    const { subscriptions, findings } = await ingest(csv, {
       llm,
       runId,
       onEvent,
@@ -103,7 +103,7 @@ export async function runPipeline(
     setStatus(runId, "reporting");
     const report = buildReport(optimization, { runId, onEvent });
 
-    const snapshot: RunSnapshot = { subscriptions, optimization, report };
+    const snapshot: RunSnapshot = { subscriptions, findings, optimization, report };
     setStatus(runId, "done");
     await persistRun({ id: runId, userId, snapshot }).catch(() => {
       /* persistence is best-effort; never fail the run on a DB hiccup */

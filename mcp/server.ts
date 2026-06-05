@@ -37,7 +37,7 @@ server.registerTool(
   {
     title: "Scan bank statement",
     description:
-      "Detect recurring subscriptions from a bank-statement CSV. Returns Subscription[] with optimizable ones flagged.",
+      "Detect recurring subscriptions from a bank-statement CSV. Returns { subscriptions, findings } — subscriptions with optimizable ones flagged, plus risk-free savings findings (duplicates, category overlap, cost escalation, zombies).",
     inputSchema: { csv: z.string().describe("Raw bank-statement CSV text") },
   },
   async ({ csv }) => {
@@ -85,7 +85,7 @@ server.registerTool(
   },
   async ({ csv }) => {
     const { llm, search, proxy } = getProviders();
-    const subs = await ingest(csv, { llm });
+    const { subscriptions: subs, findings } = await ingest(csv, { llm });
     const profiles = defaultProfiles(subs);
     const optimizable = subs.filter((s) => s.optimizable);
     const svc = asTargets([...new Set(optimizable.map((s) => s.service))]);
@@ -97,7 +97,7 @@ server.registerTool(
     });
     const optimization = optimize(optimizable, geo, { profiles });
     const report = buildReport(optimization);
-    return result({ report, optimization });
+    return result({ report, optimization, findings });
   },
 );
 

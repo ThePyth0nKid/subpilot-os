@@ -7,6 +7,7 @@ import {
   ServiceSlugSchema,
   SubscriptionKindSchema,
 } from "@/lib/domain/subscription";
+import { SpendCategorySchema } from "@/lib/domain/insight";
 import type { RecurringCandidate } from "./cluster";
 
 const ClassificationSchema = z.object({
@@ -14,6 +15,7 @@ const ClassificationSchema = z.object({
   merchantNormalized: z.string(),
   service: ServiceSlugSchema,
   kind: SubscriptionKindSchema,
+  category: SpendCategorySchema,
   interval: BillingIntervalSchema,
   currentPlan: z.string().optional(),
   detectedCountry: z.string(), // ISO-3166 alpha-2
@@ -41,6 +43,15 @@ You receive recurring bank charges already detected as candidates. For EACH cand
   claude, cursor, midjourney, suno, elevenlabs, mistral, railway, apple.
   IMPORTANT: "CLAUDE.AI" / "ANTHROPIC" is claude — NEVER chatgpt (chatgpt is OpenAI only).
   APPLE.COM/BILL is apple. Everything unrecognized -> "unknown".
+- category: the spend bucket, used to spot redundancy. Choose ONE:
+  llm_chat (ChatGPT, Claude, Mistral, Perplexity, OpenRouter),
+  image_gen (Midjourney, Higgsfield, Recraft, Scenario, Pollo, FAL, Replicate, Ideogram),
+  video_gen (Runway, Kling, Veo, CapCut), audio_gen (Suno, ElevenLabs, Udio),
+  dev_tools (Cursor, GitHub, Expo, Resend, Nylas), hosting (Hostinger, Railway, Vercel, Cloudflare),
+  cloud (Google Cloud/Workspace, AWS, iCloud, Apple storage), productivity (Notion, Zep, Wispr),
+  community (Skool, Discord nitro), entertainment (Netflix, Spotify, YouTube, Disney, PlayStation),
+  fitness (gym, Therme, SportsTech), finance (banking/fintech fees), other (anything else).
+  For kind p2p/retail/other always use category "other".
 - interval: usually "monthly" for these charges.
 - currentPlan: best guess from the monthly price (e.g. Netflix 19.99 EUR -> "Premium").
 - detectedCountry: the user's billing market. All charges are EUR in Germany -> "DE".
