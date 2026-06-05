@@ -165,18 +165,19 @@ async function section7(): Promise<void> {
       }>;
       const classifications = payload.map((c) => {
         const raw = c.merchantRaw.toUpperCase();
-        const [service, kind] = raw.includes("NETFLIX")
-          ? ["netflix", "subscription"]
+        const [service, kind, category] = raw.includes("NETFLIX")
+          ? ["netflix", "subscription", "entertainment"]
           : raw.includes("OPENAI")
-            ? ["chatgpt", "subscription"] // brand-mapped metered API spend
+            ? ["chatgpt", "subscription", "llm_chat"] // brand-mapped metered API spend
             : raw.includes("MIRIAM")
-              ? ["unknown", "p2p"]
-              : ["unknown", "retail"];
+              ? ["unknown", "p2p", "other"]
+              : ["unknown", "retail", "other"];
         return {
           index: c.index,
           merchantNormalized: c.merchantRaw.split(" ")[0],
           service,
           kind,
+          category,
           interval: "monthly",
           detectedCountry: "DE",
           confidence: 0.9,
@@ -186,7 +187,7 @@ async function section7(): Promise<void> {
     },
   };
 
-  const subs = await ingest(csv, { llm: stubLlm });
+  const { subscriptions: subs } = await ingest(csv, { llm: stubLlm });
   assert(subs.length === 4, "7: four candidates survive ingest");
 
   const netflix = subs.find((s) => s.service === "netflix");

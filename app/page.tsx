@@ -9,6 +9,7 @@ import { HistoryPanel } from "@/app/components/HistoryPanel";
 import { KernelStrip } from "@/app/components/KernelStrip";
 import { ReceiptPanel } from "@/app/components/ReceiptPanel";
 import { SavingsPlan } from "@/app/components/SavingsPlan";
+import { InsightsPanel } from "@/app/components/InsightsPanel";
 import { useAuth } from "@workos-inc/authkit-nextjs/components";
 import { redactCsvText } from "@/lib/anonymize";
 import { eur } from "@/lib/ui/meta";
@@ -392,6 +393,12 @@ export default function Home() {
       )}
 
       {/* ── Results ──────────────────────────────────────────── */}
+      {snapshot && snapshot.findings.length > 0 && (
+        <section className="mt-6">
+          <InsightsPanel findings={snapshot.findings} />
+        </section>
+      )}
+
       {snapshot && (
         <section className="mt-6">
           <SavingsPlan

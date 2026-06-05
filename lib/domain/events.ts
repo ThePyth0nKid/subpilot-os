@@ -3,6 +3,7 @@ import { z } from "zod";
 export const AGENT_NAMES = [
   "orchestrator",
   "ingest",
+  "insights",
   "interview",
   "geo-research",
   "constraint",

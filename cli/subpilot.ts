@@ -53,7 +53,7 @@ async function pipeline(csv: string, execute: boolean): Promise<void> {
   );
   const onEvent = printEvent;
 
-  const subs = await ingest(csv, { llm, onEvent });
+  const { subscriptions: subs } = await ingest(csv, { llm, onEvent });
   const profiles = defaultProfiles(subs, { onEvent });
   const optimizable = subs.filter((s) => s.optimizable);
   const services = [...new Set(optimizable.map((s) => s.service))].filter(
@@ -98,13 +98,24 @@ async function pipeline(csv: string, execute: boolean): Promise<void> {
 
 async function scan(csv: string): Promise<void> {
   const { llm } = getProviders();
-  const subs = await ingest(csv, { llm, onEvent: printEvent });
+  const { subscriptions: subs, findings } = await ingest(csv, {
+    llm,
+    onEvent: printEvent,
+  });
   console.log(`\n${C.bold}Detected ${subs.length} subscriptions:${C.reset}`);
   for (const s of subs) {
     const mark = s.optimizable ? `${C.gold}★${C.reset}` : " ";
     console.log(
       `  ${mark} ${s.merchantNormalized.padEnd(22)} ${s.service.padEnd(16)} ${eur(s.currentMonthly.monthlyEUR)}/mo`,
     );
+  }
+  if (findings.length > 0) {
+    console.log(`\n${C.bold}Savings opportunities:${C.reset}`);
+    for (const f of findings) {
+      console.log(
+        `  ${C.gold}•${C.reset} ${f.title}${f.estimatedMonthlySavingsEUR > 0 ? ` ${C.dim}(~${eur(f.estimatedMonthlySavingsEUR)}/mo)${C.reset}` : ""}`,
+      );
+    }
   }
 }
 

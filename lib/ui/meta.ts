@@ -57,6 +57,7 @@ export const PHASES: readonly PhaseMeta[] = [
 export const AGENT_ACCENT: Readonly<Record<string, string>> = {
   orchestrator: "#9d8cff",
   ingest: "#62cbff",
+  insights: "#ffd166",
   interview: "#f4d199",
   "geo-research": "#62cbff",
   constraint: "#ffba5c",
